@@ -94,6 +94,39 @@ contains the shortcode (`has_shortcode()`), and reads the hashed
 filenames from Vite's `manifest.json` rather than hard-coding them, so a
 fresh `npm run build` never requires touching PHP.
 
+## Known limitations
+
+**Asset loading can miss the shortcode outside plain post content.**
+`class-assets.php` decides whether to load the app's JS/CSS by running
+`has_shortcode()` against `$post->post_content` — which only sees the
+literal `[events_showcase]` text stored on that field. It won't see the
+shortcode if it's placed via a widget, a reusable block or synced
+pattern, a page builder that stores its own content outside
+`post_content`, or a template calling `do_shortcode( '[events_showcase]' )`
+directly. On a page like that, the shortcode still renders (PHP doesn't
+care where `do_shortcode()` is called from), but the mount element has
+nothing to hydrate into.
+
+The fix is the `events_showcase_enqueue_assets` filter — force assets on
+for a specific case from a theme's `functions.php` (or a small
+site-specific plugin):
+
+```php
+add_filter(
+    'events_showcase_enqueue_assets',
+    function ( $should, $post ) {
+        if ( $post && 42 === $post->ID ) {
+            return true;
+        }
+        return $should;
+    },
+    10,
+    2
+);
+```
+
+Swap `42` for the ID of the page in question.
+
 ## Deployment
 
 The working demo is hosted on a Cloudways WordPress dev server. *(Link to

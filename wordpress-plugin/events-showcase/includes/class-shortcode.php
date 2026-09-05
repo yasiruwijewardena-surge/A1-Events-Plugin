@@ -19,12 +19,17 @@ defined( 'ABSPATH' ) || exit;
 class Shortcode {
 
 	/**
-	 * Set true the first time the shortcode renders on this request. The
-	 * (forthcoming) Assets class reads this — or, more likely, does its
-	 * own has_shortcode() check on the post content at wp_enqueue_scripts
-	 * — rather than this class enqueuing anything itself: shortcodes
-	 * render during the_content, which runs after wp_head, so enqueuing
-	 * CSS from in here would cause a flash of unstyled content.
+	 * Set true the first time the shortcode renders on this request.
+	 *
+	 * This is a last resort, not a primary signal: `wp_enqueue_scripts` —
+	 * the normal place to enqueue — fires before `the_content` is
+	 * processed, so this flag is still `false` at that point even when the
+	 * shortcode is about to render. Assets::should_enqueue() therefore
+	 * checks `has_shortcode()` on the post content instead, which is known
+	 * ahead of time. Something reading this flag can only act from a later
+	 * hook such as `wp_footer` — fine for a footer-loaded script, but too
+	 * late for stylesheets, since CSS enqueued that late causes a flash of
+	 * unstyled content.
 	 *
 	 * @var bool
 	 */

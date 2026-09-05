@@ -25,14 +25,7 @@ require_once EVENTS_SHOWCASE_DIR . 'includes/class-acf-fields.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-events-repository.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-rest-controller.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-shortcode.php';
-
-// The asset-enqueue class is built in a later step. Loading it
-// conditionally means this file doesn't need to change when it lands, and
-// the plugin doesn't fatal in the meantime.
-$assets_path = EVENTS_SHOWCASE_DIR . 'includes/class-assets.php';
-if ( \file_exists( $assets_path ) ) {
-	require_once $assets_path;
-}
+require_once EVENTS_SHOWCASE_DIR . 'includes/class-assets.php';
 
 /**
  * Instantiates every class the plugin needs. Each class wires up its own
@@ -52,11 +45,10 @@ function bootstrap() {
 	new REST_Controller( $repository );
 	new Shortcode( $repository );
 
-	// Guarded by class_exists() rather than a file_exists() check here,
-	// since the file may not exist at all yet.
-	if ( \class_exists( __NAMESPACE__ . '\\Assets' ) ) {
-		new Assets();
-	}
+	// No repository needed — Assets only reads the build manifest and
+	// checks the current request's post content, neither of which touches
+	// event data.
+	new Assets();
 }
 \add_action( 'plugins_loaded', __NAMESPACE__ . '\\bootstrap' );
 
