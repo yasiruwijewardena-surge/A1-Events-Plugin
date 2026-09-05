@@ -1,60 +1,94 @@
 <?php
 /**
- * Registers the ACF field group for the "event" post type (start date,
- * end date, venue, location) and exposes those fields on the REST API
- * response under an "acf" key, so the React app never has to hard-code
- * content — it all comes from WordPress.
+ * Registers the ACF field group for events.
  *
- * Registration is guarded by function_exists() so the plugin still loads
- * (minus these fields) if ACF isn't active; see README for setup notes.
- *
- * @package EventsShowcase
+ * @package Events_Showcase
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-	exit;
-}
+namespace Events_Showcase;
 
-class Events_Showcase_ACF_Fields {
+defined( 'ABSPATH' ) || exit;
 
+/**
+ * ACF field group registration. Always defined — unlike a class-level
+ * function_exists() guard, this keeps the bootstrap uniform (every class
+ * is instantiated the same way) and lets `init()` be unit-tested directly
+ * even on an environment without ACF installed.
+ *
+ * The post meta these fields write to is registered by Post_Type, not
+ * here — those registrations must run whether or not ACF is present,
+ * since they're what the repository's non-ACF fallback path relies on.
+ */
+class ACF_Fields {
+
+	/**
+	 * Hooks registration, guarded by ACF's presence.
+	 */
 	public function __construct() {
-		add_action( 'acf/init', array( $this, 'register_field_group' ) );
-		add_action( 'rest_api_init', array( $this, 'register_rest_field' ) );
+		$this->init();
 	}
 
-	public function register_field_group() {
-		if ( ! function_exists( 'acf_add_local_field_group' ) ) {
+	/**
+	 * @return void
+	 */
+	public function init(): void {
+		// ACF is optional — the repository falls back to raw post meta without it.
+		if ( ! \function_exists( 'acf_add_local_field_group' ) ) {
 			return;
 		}
 
-		acf_add_local_field_group(
+		\add_action( 'acf/init', array( $this, 'register_field_group' ) );
+	}
+
+	/**
+	 * Field config lives in code, not the ACF admin UI, so it ships with
+	 * the plugin and works on a fresh install with no export/import step.
+	 *
+	 * @return void
+	 */
+	public function register_field_group(): void {
+		\acf_add_local_field_group(
 			array(
-				'key'      => 'group_events_showcase',
-				'title'    => 'Event Details',
+				'key'      => 'group_events_showcase_details',
+				'title'    => __( 'Event Details', 'events-showcase' ),
 				'fields'   => array(
 					array(
-						'key'   => 'field_es_start_date',
-						'label' => 'Start Date & Time',
-						'name'  => 'start_date',
-						'type'  => 'date_time_picker',
+						'key'            => 'field_es_start_datetime',
+						'label'          => __( 'Start Date & Time', 'events-showcase' ),
+						'name'           => 'es_start_datetime',
+						'type'           => 'date_time_picker',
+						'required'       => 1,
+						'display_format' => 'Y-m-d H:i:s',
+						'return_format'  => 'Y-m-d H:i:s',
 					),
 					array(
-						'key'   => 'field_es_end_date',
-						'label' => 'End Date & Time',
-						'name'  => 'end_date',
-						'type'  => 'date_time_picker',
+						'key'            => 'field_es_end_datetime',
+						'label'          => __( 'End Date & Time', 'events-showcase' ),
+						'name'           => 'es_end_datetime',
+						'type'           => 'date_time_picker',
+						'required'       => 0,
+						'display_format' => 'Y-m-d H:i:s',
+						'return_format'  => 'Y-m-d H:i:s',
 					),
 					array(
-						'key'   => 'field_es_venue',
-						'label' => 'Venue',
-						'name'  => 'venue',
+						'key'   => 'field_es_venue_name',
+						'label' => __( 'Venue Name', 'events-showcase' ),
+						'name'  => 'es_venue_name',
 						'type'  => 'text',
 					),
 					array(
-						'key'   => 'field_es_location',
-						'label' => 'Location (city/region)',
-						'name'  => 'location',
-						'type'  => 'text',
+						'key'          => 'field_es_location',
+						'label'        => __( 'Location', 'events-showcase' ),
+						'name'         => 'es_location',
+						'type'         => 'text',
+						'instructions' => __( 'City or region — drives the location filter.', 'events-showcase' ),
+					),
+					array(
+						'key'      => 'field_es_external_url',
+						'label'    => __( 'External URL', 'events-showcase' ),
+						'name'     => 'es_external_url',
+						'type'     => 'url',
+						'required' => 0,
 					),
 				),
 				'location' => array(
@@ -62,30 +96,10 @@ class Events_Showcase_ACF_Fields {
 						array(
 							'param'    => 'post_type',
 							'operator' => '==',
-							'value'    => 'event',
+							'value'    => Post_Type::post_type(),
 						),
 					),
 				),
-			)
-		);
-	}
-
-	/**
-	 * Adds an "acf" field to the /wp-json/wp/v2/events REST response
-	 * containing the fields registered above.
-	 */
-	public function register_rest_field() {
-		register_rest_field(
-			'event',
-			'acf',
-			array(
-				'get_callback' => function ( $post ) {
-					if ( ! function_exists( 'get_fields' ) ) {
-						return array();
-					}
-					return get_fields( $post['id'] ) ?: array();
-				},
-				'schema'       => null,
 			)
 		);
 	}

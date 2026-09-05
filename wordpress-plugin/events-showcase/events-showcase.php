@@ -1,55 +1,85 @@
 <?php
 /**
  * Plugin Name:       Events Showcase
- * Description:       Interactive events grid with filtering, search, and a details modal, built in React + Vite and exposed via the [events_showcase] shortcode.
- * Version:           0.1.0
+ * Description:       Headless events data layer — custom post type, ACF fields, and a REST API — for a React-driven events grid mounted via shortcode.
+ * Version:           1.0.0
  * Requires at least: 6.0
- * Requires PHP:      7.4
+ * Requires PHP:      8.0
  * Author:            Yasiru Wijewardena
  * License:           GPL-2.0-or-later
  * Text Domain:       events-showcase
  *
- * @package EventsShowcase
+ * @package Events_Showcase
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-	exit; // No direct access.
-}
+namespace Events_Showcase;
 
-define( 'EVENTS_SHOWCASE_VERSION', '0.1.0' );
-define( 'EVENTS_SHOWCASE_DIR', plugin_dir_path( __FILE__ ) );
-define( 'EVENTS_SHOWCASE_URL', plugin_dir_url( __FILE__ ) );
+defined( 'ABSPATH' ) || exit;
+
+define( 'EVENTS_SHOWCASE_VERSION', '1.0.0' );
+define( 'EVENTS_SHOWCASE_DIR', \plugin_dir_path( __FILE__ ) );
+define( 'EVENTS_SHOWCASE_URL', \plugin_dir_url( __FILE__ ) );
 
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-post-type.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-acf-fields.php';
+require_once EVENTS_SHOWCASE_DIR . 'includes/class-events-repository.php';
+require_once EVENTS_SHOWCASE_DIR . 'includes/class-rest-controller.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-shortcode.php';
-require_once EVENTS_SHOWCASE_DIR . 'includes/class-assets.php';
+
+// The asset-enqueue class is built in a later step. Loading it
+// conditionally means this file doesn't need to change when it lands, and
+// the plugin doesn't fatal in the meantime.
+$assets_path = EVENTS_SHOWCASE_DIR . 'includes/class-assets.php';
+if ( \file_exists( $assets_path ) ) {
+	require_once $assets_path;
+}
 
 /**
- * Boot the plugin. Each class wires up its own hooks in its constructor,
- * keeping the WordPress/PHP integration layer separate from the React app
- * (react-app/) and organized by concern.
+ * Instantiates every class the plugin needs. Each class wires up its own
+ * hooks in its constructor, so this function is just a registry of "what
+ * exists" — no ordering logic beyond what plugins_loaded already gives us.
+ *
+ * @return void
  */
-function events_showcase_bootstrap() {
-	new Events_Showcase_Post_Type();
-	new Events_Showcase_ACF_Fields();
-	new Events_Showcase_Shortcode();
-	new Events_Showcase_Assets();
+function bootstrap() {
+	new Post_Type();
+	new ACF_Fields();
+
+	// Shared between the two so Events_Repository's cache-busting hooks
+	// (save_post, deleted_post, set_object_terms) are registered once, not
+	// twice.
+	$repository = new Events_Repository();
+	new REST_Controller( $repository );
+	new Shortcode( $repository );
+
+	// Guarded by class_exists() rather than a file_exists() check here,
+	// since the file may not exist at all yet.
+	if ( \class_exists( __NAMESPACE__ . '\\Assets' ) ) {
+		new Assets();
+	}
 }
-add_action( 'plugins_loaded', 'events_showcase_bootstrap' );
+\add_action( 'plugins_loaded', __NAMESPACE__ . '\\bootstrap' );
 
 /**
- * Flush rewrite rules on activation/deactivation so the "event" CPT's
- * permalinks and REST routes work immediately.
+ * Registers the post type immediately — activation runs before the next
+ * `init`, but rewrite rules can only be flushed against types that are
+ * already registered — then flushes so the new permalinks work right away.
+ *
+ * @return void
  */
-function events_showcase_activate() {
-	require_once EVENTS_SHOWCASE_DIR . 'includes/class-post-type.php';
-	( new Events_Showcase_Post_Type() )->register();
-	flush_rewrite_rules();
+function activate() {
+	( new Post_Type() )->register();
+	\flush_rewrite_rules();
 }
-register_activation_hook( __FILE__, 'events_showcase_activate' );
+\register_activation_hook( __FILE__, __NAMESPACE__ . '\\activate' );
 
-function events_showcase_deactivate() {
-	flush_rewrite_rules();
+/**
+ * Flushes rewrite rules again on deactivation so the post type's rules
+ * don't linger and shadow whatever permalink structure comes next.
+ *
+ * @return void
+ */
+function deactivate() {
+	\flush_rewrite_rules();
 }
-register_deactivation_hook( __FILE__, 'events_showcase_deactivate' );
+\register_deactivation_hook( __FILE__, __NAMESPACE__ . '\\deactivate' );
