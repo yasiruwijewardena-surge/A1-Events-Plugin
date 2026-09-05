@@ -1,0 +1,94 @@
+/*
+ * Styles for the Events Showcase component.
+ * Scoped under .events-showcase so this stylesheet is safe to enqueue
+ * alongside arbitrary WordPress themes without leaking selectors.
+ */
+
+.events-showcase {
+  --es-gap: 1rem;
+  --es-radius: 8px;
+  --es-border: #e2e2e2;
+  --es-accent: #2563eb;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* TODO: controls (search + filters) */
+.events-showcase__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+/* TODO: responsive grid — mobile: 1 col, tablet: 2 col, desktop: 3+ col */
+.events-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--es-gap);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (min-width: 640px) {
+  .events-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .events-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* TODO: event card styling */
+.event-card {
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+/* TODO: modal overlay + dialog + transitions */
+.event-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1000;
+}
+
+.event-modal {
+  background: #fff;
+  border-radius: var(--es-radius);
+  max-width: 640px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 2rem;
+  position: relative;
+}
+
+.event-modal__close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* TODO: loader + no-results states */
+.events-showcase__loader,
+.events-showcase__no-results {
+  padding: 2rem;
+  text-align: center;
+}

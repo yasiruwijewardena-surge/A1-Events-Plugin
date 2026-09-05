@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Events Showcase — Dev Sandbox</title>
+  </head>
+  <body>
+    <!--
+      Standalone dev sandbox only. On the real WordPress site this mount
+      element (and its data-* attributes) is rendered by the shortcode's
+      PHP template instead — see wordpress-plugin/events-showcase/includes.
+    -->
+    <div
+      class="events-showcase-root"
+      data-events-showcase
+      data-rest-url="/wp-json/wp/v2/events"
+      data-per-page="12"
+    ></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
