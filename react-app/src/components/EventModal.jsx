@@ -38,7 +38,11 @@ export default function EventModal({ event, onClose }) {
           ×
         </button>
 
-        <img className="event-modal__thumb" src={event.thumbnail} alt="" />
+        <img
+          className="event-modal__thumb"
+          src={event.thumbnail}
+          alt={event.thumbnailAlt || ''}
+        />
         <h2 id={titleId} className="event-modal__title">
           {event.title}
         </h2>
@@ -62,6 +66,24 @@ export default function EventModal({ event, onClose }) {
           // server-side by wp_kses via the REST API).
           dangerouslySetInnerHTML={{ __html: event.description }}
         />
+
+        <div className="event-modal__links">
+          {event.permalink && (
+            <a href={event.permalink} className="event-modal__link">
+              View full event page
+            </a>
+          )}
+          {event.externalUrl && (
+            <a
+              href={event.externalUrl}
+              className="event-modal__link"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              External event link
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );

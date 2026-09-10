@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name:       Events Showcase
- * Description:       Headless events data layer — custom post type, ACF fields, and a REST API — for a React-driven events grid mounted via shortcode.
+ * Description:       Headless events data layer — custom post type, a built-in fields UI (or ACF, if installed), and a REST API — for a React-driven events grid mounted via shortcode.
  * Version:           1.0.0
  * Requires at least: 6.0
  * Requires PHP:      8.0
@@ -22,6 +22,7 @@ define( 'EVENTS_SHOWCASE_URL', \plugin_dir_url( __FILE__ ) );
 
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-post-type.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-acf-fields.php';
+require_once EVENTS_SHOWCASE_DIR . 'includes/class-meta-box.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-events-repository.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-rest-controller.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-shortcode.php';
@@ -36,7 +37,13 @@ require_once EVENTS_SHOWCASE_DIR . 'includes/class-assets.php';
  */
 function bootstrap() {
 	new Post_Type();
+
+	// Exactly one of these two actually registers anything: each checks
+	// ACF's presence itself and no-ops if it's on the wrong side of that
+	// check, so only one "Event Details" UI ever appears on the edit
+	// screen regardless of which plugins are active.
 	new ACF_Fields();
+	new Meta_Box();
 
 	// Shared between the two so Events_Repository's cache-busting hooks
 	// (save_post, deleted_post, set_object_terms) are registered once, not

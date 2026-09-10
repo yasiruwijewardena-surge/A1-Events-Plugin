@@ -4,9 +4,6 @@ Interactive events grid (filters, search, details modal) built as a React
 component and bundled with Vite, mounted into WordPress via the
 `[events_showcase]` shortcode from a small custom plugin.
 
-> **Status:** project scaffold in progress. This README will be filled in
-> further as each piece (data layer, styling, Cloudways deployment) lands.
-
 ## Repository layout
 
 ```
@@ -14,18 +11,22 @@ react-app/                         React + Vite source (the component itself)
   src/
     components/                    EventCard, EventsGrid, EventFilters, SearchBox, EventModal, ...
     hooks/                         useEvents (data + filtering), useFocusTrap (modal a11y)
-    utils/                         api.js (REST fetch), normalizeEvent.js, filterEvents.js
+    utils/                         api.js (REST fetch), normalizeEvent.js
     styles/                        events.css
   vite.config.js                   Builds straight into the plugin's assets/build folder
-  index.html                       Standalone dev sandbox (mimics the WP mount element)
+  index.html                       Standalone dev sandbox (mimics the shortcode's markup)
 
 wordpress-plugin/
   events-showcase/                 The custom WordPress plugin (deliverable)
     events-showcase.php            Plugin bootstrap
+    uninstall.php                  Deletes all plugin data when the plugin is removed
     includes/
-      class-post-type.php          Registers the "event" CPT + "event_category" taxonomy (REST-enabled)
-      class-acf-fields.php         Registers ACF fields (start/end date, venue, location) + exposes them in REST
-      class-shortcode.php          Registers [events_showcase], renders the mount <div>
+      class-post-type.php          Registers the `es_event` CPT + `es_event_category` taxonomy (REST-enabled) and the event fields' post meta schema
+      class-acf-fields.php         Registers an ACF field group for the event fields, if ACF is active
+      class-meta-box.php           Built-in fallback admin UI for the same fields, if ACF is not active — no plugin dependency required
+      class-events-repository.php  Single source of truth for querying + normalising events — used by both the REST controller and the shortcode's SSR payload
+      class-rest-controller.php    events-showcase/v1/events and /filters REST routes
+      class-shortcode.php          Registers [events_showcase]: mount element, inline JSON payload, no-JS fallback
       class-assets.php             Reads Vite's manifest.json, enqueues hashed JS/CSS, scoped to pages using the shortcode
     assets/build/                  Vite build output (generated, not committed — see .gitignore)
 
@@ -34,37 +35,57 @@ docs/                              Supporting notes / screenshots for submission
 
 ## How data flows: WordPress → React
 
-1. Events are stored as a custom post type (`event`) with:
-   - Title, content (description) — standard WP fields.
+1. Events are stored as a custom post type (`es_event`, public — a
+   single event's own permalink is the no-JS fallback) with:
+   - Title, content (description), excerpt — standard WP fields.
    - Featured image — used as the card/modal thumbnail.
-   - Taxonomy `event_category` — used for category filtering.
-   - ACF fields `start_date`, `end_date`, `venue`, `location` — used for
-     date filtering and the modal's full details.
-2. All of the above is REST-enabled (`show_in_rest`), so the data is
-   available at `/wp-json/wp/v2/events` with `?_embed=1` (pulls in the
-   featured image and taxonomy terms) and ACF fields exposed under an
-   `acf` key via `register_rest_field()`.
-3. The shortcode (`class-shortcode.php`) renders only a mount element,
-   with the REST endpoint and any shortcode attributes passed through as
-   `data-*` attributes — no event content is ever hard-coded in PHP or JS.
+   - Taxonomy `es_event_category` — used for category filtering.
+   - Event fields `es_start_datetime`, `es_end_datetime`, `es_venue_name`,
+     `es_location`, `es_external_url` — registered as typed post meta via
+     `register_post_meta()`, independent of whichever UI wrote them.
+     Editable either through ACF (if installed — `class-acf-fields.php`)
+     or the plugin's own built-in meta box (`class-meta-box.php`), which
+     is the default and requires no other plugin. Exactly one of the two
+     UIs shows up on the edit screen, whichever applies.
+2. `Events_Repository` (`class-events-repository.php`) is the *only*
+   place that queries and shapes event data — both the REST controller
+   and the shortcode call `get_events()` on it, so the two can never
+   drift into different response shapes. It returns a flat, predictable
+   array per event: `id, title, permalink, excerpt, content,
+   start_datetime, end_datetime, venue, location, categories, thumbnail,
+   external_url` — dates as ISO 8601, never the raw MySQL format.
+3. Two consumers read that data:
+   - **REST API** — `GET /wp-json/events-showcase/v1/events` (filters:
+     `category`, `search`, `page`, `per_page`) and `.../v1/filters`
+     (available categories + locations, for data-driven filter controls).
+   - **The shortcode** (`class-shortcode.php`) calls the same
+     `get_events()` directly and inlines the first page's result as JSON
+     in a `<script type="application/json">` tag next to the mount
+     element — so the initial render has zero network round-trips.
 4. `react-app/src/main.jsx` finds every `[data-events-showcase]` element
    on the page (supporting more than one shortcode instance per page),
-   reads its `data-*` config, and mounts one independent `<App>` per
-   element.
-5. `useEvents()` fetches from the REST URL in that config, normalizes the
-   response (`normalizeEvent.js`) into the shape the UI needs, and derives
-   the available filter options from the actual data returned.
+   reads its `data-*` config (REST namespace root, per-page, initial
+   category/search), parses its sibling inline-payload `<script>` if
+   present, and mounts one independent `<App>` per element.
+5. `useEvents()` hydrates from that inline payload on first render (no
+   fetch, no loading spinner), then calls the REST API for every
+   subsequent filter/search change. Category filtering is server-side
+   (a real REST query param); location is a lighter client-side second
+   filter over whatever page is currently loaded, since the REST API
+   doesn't take a location param — see the comment at the top of
+   `useEvents.js` for the reasoning.
 
 ## Shortcode usage
 
 ```
-[events_showcase per_page="9" category="workshops"]
+[events_showcase per-page="9" category="workshops" search=""]
 ```
 
-| Attribute  | Default | Description                                   |
-|------------|---------|------------------------------------------------|
-| `per_page` | `12`    | Number of events fetched from the REST API.    |
-| `category` | *(none)*| Restrict to one `event_category` slug.         |
+| Attribute  | Default  | Description                                              |
+|------------|----------|-----------------------------------------------------------|
+| `per-page` | `12`     | Events per page, clamped 1–48.                             |
+| `category` | *(none)* | Restrict to one `es_event_category` slug. An unknown slug falls back to no filter (never a silent empty grid). |
+| `search`   | *(none)* | Initial search string, also seeds the search box's value.  |
 
 ## Setup
 
@@ -79,13 +100,25 @@ npm run build     # production build → wordpress-plugin/events-showcase/assets
 
 ### WordPress plugin
 
-1. Make sure Advanced Custom Fields is active (used for event details).
-2. Copy (or symlink) `wordpress-plugin/events-showcase/` into
-   `wp-content/plugins/` on the WordPress site.
-3. Activate **Events Showcase** in wp-admin → Plugins.
-4. Add some `Event` posts (Events → Add New): title, description, featured
-   image, category, and the ACF fields.
-5. Drop `[events_showcase]` into any page or post.
+1. Run the React build first (`npm run build` in `react-app/`) — the
+   plugin looks for `assets/build/.vite/manifest.json` and shows an
+   admin notice (to `manage_options` users only) if it's missing.
+2. No other plugin is required. Event fields (start/end date, venue,
+   location, external URL) have a built-in admin UI out of the box. If
+   **Advanced Custom Fields** happens to be active on the site already,
+   the plugin uses ACF's field group instead and hides its own — either
+   way the data ends up in the same post meta keys, so
+   `Events_Repository` can't tell which UI wrote them.
+3. Upload `wordpress-plugin/events-showcase/` into `wp-content/plugins/`
+   on the WordPress site, then activate **Events Showcase** in wp-admin →
+   Plugins.
+4. Add some **Events** posts (Events → Add New in the admin sidebar):
+   title, description, featured image, a category, and the Event Details
+   fields (start date is required; the rest are optional).
+5. Drop `[events_showcase]` into any page or post and publish.
+6. If permalinks are set to "Plain," switch to "Post name" (Settings →
+   Permalinks) — the CPT's rewrite rules need a non-plain structure to
+   produce `/event/your-event-slug/` URLs for the no-JS fallback links.
 
 ### Build output & asset scoping
 

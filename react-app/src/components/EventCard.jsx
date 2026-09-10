@@ -17,10 +17,13 @@ export default function EventCard({ event, onSelect }) {
       onKeyDown={handleKeyDown}
       aria-haspopup="dialog"
     >
+      {/* alt falls back to "" (decorative) when the editor didn't set one —
+          the title is already rendered as visible text right below, so an
+          empty alt avoids a screen reader announcing the same thing twice. */}
       <img
         className="event-card__thumb"
         src={event.thumbnail}
-        alt=""
+        alt={event.thumbnailAlt || ''}
         loading="lazy"
       />
       <div className="event-card__body">

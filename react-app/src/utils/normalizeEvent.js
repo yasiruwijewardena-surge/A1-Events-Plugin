@@ -1,25 +1,32 @@
-// Maps a raw WP REST API "event" post (title/content + ACF fields +
-// _embedded featured media/terms) into the flat shape components expect.
-// Keeping this in one place means the components never touch WP's
-// response shape directly — only this function needs to change if the
-// custom post type / field names change.
-export function normalizeEvent(post) {
-  const acf = post.acf || {};
-  const media = post._embedded?.['wp:featuredmedia']?.[0];
-  const terms = post._embedded?.['wp:term']?.flat() || [];
-  const category = terms.find((t) => t.taxonomy === 'event_category')?.name || 'General';
-
-  const startDate = acf.start_date ? new Date(acf.start_date) : null;
+// Maps an already-normalized event from the Events Showcase REST API
+// (see wordpress-plugin/.../class-events-repository.php Events_Repository::normalise())
+// into the display-ready shape the components use — mostly just formatting
+// the ISO 8601 dates into human-readable labels. Unlike the old version of
+// this file, there's no WP REST/_embed/ACF shape to dig through here: the
+// PHP repository already did that flattening, which is the whole point of
+// having a single repository both the shortcode and the REST API call.
+export function normalizeEvent(raw) {
+  const startDate = raw.start_datetime ? new Date(raw.start_datetime) : null;
+  const endDate = raw.end_datetime ? new Date(raw.end_datetime) : null;
+  const categories = raw.categories || [];
 
   return {
-    id: post.id,
-    title: post.title?.rendered || '(untitled)',
-    description: post.content?.rendered || '',
-    category,
-    location: acf.location || '',
-    venue: acf.venue || acf.location || '',
-    thumbnail: media?.source_url || acf.thumbnail || '',
+    id: raw.id,
+    title: raw.title,
+    permalink: raw.permalink,
+    excerpt: raw.excerpt,
+    description: raw.content,
+    venue: raw.venue,
+    location: raw.location,
+    externalUrl: raw.external_url,
+    // Cards/filters show one category label; a select dropdown still needs
+    // every slug the event belongs to, in case an event has more than one.
+    category: categories[0]?.name || 'General',
+    categorySlugs: categories.map((c) => c.slug),
+    thumbnail: raw.thumbnail?.url || '',
+    thumbnailAlt: raw.thumbnail?.alt || '',
     startDate,
+    endDate,
     dateLabel: startDate ? formatDate(startDate) : '',
     fullDateLabel: startDate ? formatFullDate(startDate) : '',
   };

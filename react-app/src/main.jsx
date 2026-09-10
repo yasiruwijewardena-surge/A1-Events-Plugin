@@ -5,7 +5,9 @@ import './styles/events.css';
 
 // Mount into every instance of the shortcode's root element so the
 // component can be dropped onto a page more than once. Config for each
-// instance comes from its own data-* attributes (see README for the list).
+// instance comes from its own data-* attributes — see
+// wordpress-plugin/events-showcase/includes/class-shortcode.php for what
+// it prints and README.md for the full attribute list.
 function mountAll() {
   const roots = document.querySelectorAll('[data-events-showcase]');
 
@@ -14,16 +16,46 @@ function mountAll() {
     el.dataset.mounted = 'true';
 
     const config = {
-      restUrl: el.dataset.restUrl || '/wp-json/wp/v2/events',
+      // Namespace root (e.g. /wp-json/events-showcase/v1) — api.js appends
+      // /events or /filters itself, so this file never hard-codes a route.
+      restUrl: el.dataset.api || '/wp-json/events-showcase/v1',
       perPage: Number(el.dataset.perPage) || 12,
+      initialCategory: el.dataset.category || '',
+      initialSearch: el.dataset.search || '',
+      nonce: el.dataset.nonce || '',
     };
 
     createRoot(el).render(
       <StrictMode>
-        <App config={config} />
+        <App config={config} initialData={readInitialData(el)} />
       </StrictMode>,
     );
   });
+}
+
+/**
+ * Reads the SSR payload the shortcode inlined as a sibling
+ * <script type="application/json">, so the first render can hydrate
+ * synchronously instead of showing a loading spinner while it fetches
+ * exactly the same first page over the network.
+ *
+ * Falls back to null (triggering the normal fetch-on-mount path in
+ * useEvents.js) if the payload is missing or fails to parse — the
+ * component should degrade to "loads a little slower," never break,
+ * if the markup and this script ever drift out of sync.
+ */
+function readInitialData(el) {
+  const payloadId = el.dataset.payload;
+  if (!payloadId) return null;
+
+  const script = document.getElementById(payloadId);
+  if (!script) return null;
+
+  try {
+    return JSON.parse(script.textContent);
+  } catch {
+    return null;
+  }
 }
 
 mountAll();

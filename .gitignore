@@ -16,3 +16,6 @@ Thumbs.db
 # (Not a plain .gitignore *inside* that folder: Vite's emptyOutDir wipes
 # the directory's contents on every build, which would delete it there.)
 wordpress-plugin/events-showcase/assets/build/
+
+# Distributable plugin zip (built on demand for wp-admin upload installs).
+wordpress-plugin/*.zip

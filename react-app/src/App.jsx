@@ -6,8 +6,10 @@ import NoResults from './components/NoResults.jsx';
 import Loader from './components/Loader.jsx';
 
 // Top-level component mounted per shortcode instance.
-// `config` comes from the mount element's data-* attributes (see main.jsx).
-export default function App({ config }) {
+// `config` comes from the mount element's data-* attributes, and
+// `initialData` from its sibling <script type="application/json"> payload,
+// if present — see main.jsx.
+export default function App({ config, initialData }) {
   const {
     loading,
     error,
@@ -17,8 +19,8 @@ export default function App({ config }) {
     search,
     setSearch,
     categories,
-    dates,
-  } = useEvents(config);
+    locations,
+  } = useEvents(config, initialData);
 
   return (
     <div className="events-showcase">
@@ -28,7 +30,7 @@ export default function App({ config }) {
           filters={filters}
           onChange={setFilters}
           categories={categories}
-          dates={dates}
+          locations={locations}
         />
       </div>
 

@@ -1,6 +1,8 @@
-// Filter controls for the events grid. Currently filters by category and
-// date; wired up to whatever dimensions useEvents() derives from the data.
-export default function EventFilters({ filters, onChange, categories, dates }) {
+// Filter controls: category (server-side, options from the REST /filters
+// endpoint) and location (client-side, options derived from whatever
+// events are currently loaded — see useEvents.js for why the two work
+// differently).
+export default function EventFilters({ filters, onChange, categories, locations }) {
   const update = (key) => (e) => {
     onChange({ ...filters, [key]: e.target.value });
   };
@@ -12,20 +14,20 @@ export default function EventFilters({ filters, onChange, categories, dates }) {
         <select value={filters.category} onChange={update('category')}>
           <option value="">All categories</option>
           {categories.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
+            <option key={cat.slug} value={cat.slug}>
+              {cat.name}
             </option>
           ))}
         </select>
       </label>
 
       <label className="event-filters__field">
-        <span>Date</span>
-        <select value={filters.date} onChange={update('date')}>
-          <option value="">All dates</option>
-          {dates.map((date) => (
-            <option key={date} value={date}>
-              {date}
+        <span>Location</span>
+        <select value={filters.location} onChange={update('location')}>
+          <option value="">All locations</option>
+          {locations.map((location) => (
+            <option key={location} value={location}>
+              {location}
             </option>
           ))}
         </select>
