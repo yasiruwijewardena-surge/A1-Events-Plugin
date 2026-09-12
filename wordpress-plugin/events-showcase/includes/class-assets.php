@@ -250,9 +250,18 @@ class Assets {
 	 * @return string
 	 */
 	public function filter_script_tag( string $tag, string $handle ): string {
-		if ( self::HANDLE !== $handle || false !== strpos( $tag, ' type=' ) ) {
+		if ( self::HANDLE !== $handle ) {
 			return $tag;
 		}
+
+		// Strip whatever type WordPress already printed rather than
+		// bailing when one is present: core emits type='text/javascript'
+		// unless the active theme declares add_theme_support( 'html5',
+		// 'script' ), which most themes (including Divi) don't — so a
+		// "skip if type= exists" guard would make this filter a silent
+		// no-op and ship the bundle as a classic script that throws on
+		// its first `import`.
+		$tag = preg_replace( "/\s+type=(['\"])[^'\"]*\\1/", '', $tag );
 
 		return str_replace( ' src=', ' type="module" src=', $tag );
 	}

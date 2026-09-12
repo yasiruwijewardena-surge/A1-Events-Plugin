@@ -13,7 +13,11 @@ import { normalizeEvent } from '../utils/normalizeEvent.js';
  * page/per_page exist on Events_Repository::get_events()), so its
  * options are derived from the currently-loaded events rather than the
  * global list, to avoid offering a choice that can't actually narrow
- * anything.
+ * anything. This is a known trade-off, not an oversight: paging changes
+ * which events are "currently loaded," so the location dropdown's
+ * options and its filtering both silently re-scope to whatever page
+ * you're on. A location that only appears on page 2 isn't selectable
+ * while viewing page 1.
  *
  * @param {{restUrl: string, perPage: number, initialCategory: string, initialSearch: string}} config
  * @param {{events: object[], total: number, pages: number}|null} initialData
@@ -41,6 +45,14 @@ export function useEvents(config, initialData) {
   // (the shortcode queried with the same values), so the first run of the
   // fetch effect below should be a no-op rather than an immediate refetch.
   const skipNextFetch = useRef(Boolean(initialData));
+
+  // Tracks whether the *next* completed fetch is the first time this
+  // instance has ever shown results (SSR hydration counts as "already
+  // shown" even though it skips its own fetch). Drives resultsMessage
+  // below, which must announce on a filter/search/page change but stay
+  // silent on the initial load.
+  const isFirstResult = useRef(true);
+  const [resultsMessage, setResultsMessage] = useState('');
 
   // Debounced so typing in the search box doesn't hit the REST API on
   // every keystroke.
@@ -80,12 +92,21 @@ export function useEvents(config, initialData) {
   useEffect(() => {
     if (skipNextFetch.current) {
       skipNextFetch.current = false;
+      // The SSR payload already put results on screen, so the *next*
+      // fetch this instance runs is a real change, not the first load.
+      isFirstResult.current = false;
       return;
     }
 
     let cancelled = false;
     setLoading(true);
     setError(null);
+
+    // Captured before the request resolves, not read fresh in .then() —
+    // by the time the response comes back this ref may already have been
+    // flipped by a later effect run (e.g. a second fast filter change).
+    const wasFirstResult = isFirstResult.current;
+    isFirstResult.current = false;
 
     fetchEvents(config.restUrl, {
       category: filters.category,
@@ -95,9 +116,14 @@ export function useEvents(config, initialData) {
     })
       .then((result) => {
         if (cancelled) return;
+        const count = result.total || 0;
         setEvents((result.events || []).map(normalizeEvent));
-        setTotal(result.total || 0);
+        setTotal(count);
         setPages(result.pages || 0);
+
+        if (!wasFirstResult) {
+          setResultsMessage(count === 1 ? '1 event matches' : `${count} events match`);
+        }
       })
       .catch((err) => {
         if (cancelled) return;
@@ -136,5 +162,6 @@ export function useEvents(config, initialData) {
     pages,
     page,
     setPage,
+    resultsMessage,
   };
 }

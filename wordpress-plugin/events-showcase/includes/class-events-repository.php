@@ -69,6 +69,14 @@ class Events_Repository {
 			)
 		);
 
+		// wp_parse_args() only fills in a default for a *missing* key — a
+		// caller-supplied `null` (e.g. WP_REST_Request::get_param() for an
+		// optional arg with no schema default) overrides the '' default
+		// above and survives as null. Cast now so every check below can
+		// trust these are strings, not null.
+		$args['category'] = (string) $args['category'];
+		$args['search']   = (string) $args['search'];
+
 		$cache_key = $this->cache_key( 'events_' . \md5( (string) \wp_json_encode( $args ) ) );
 		$cached    = \wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
@@ -203,7 +211,18 @@ class Events_Repository {
 			'title'          => \get_the_title( $post ),
 			'permalink'      => \get_permalink( $post ),
 			'excerpt'        => \has_excerpt( $post ) ? \wp_strip_all_tags( \get_the_excerpt( $post ) ) : '',
-			'content'        => \apply_filters( 'the_content', $post->post_content ),
+			// Deliberately not `apply_filters( 'the_content', ... )`: the
+			// shortcode itself runs *during* the_content on the host page,
+			// so filtering through the_content again here re-enters the
+			// same chain once per event — do_shortcode is part of that
+			// chain, so an event body containing [events_showcase] would
+			// recurse infinitely, and Divi (this site's theme) hooks
+			// the_content heavily enough that running it nested produces
+			// duplicated/mangled output even without that. A JSON payload
+			// also has no business running arbitrary third-party content
+			// filters. wp_kses_post() + wpautop() gives safe, paragraph-
+			// wrapped HTML without re-entering anything.
+			'content'        => \wp_kses_post( \wpautop( $post->post_content ) ),
 			'start_datetime' => $this->iso8601( $this->meta( $post->ID, 'es_start_datetime' ) ),
 			'end_datetime'   => $this->iso8601( $this->meta( $post->ID, 'es_end_datetime' ) ),
 			'venue'          => $this->meta( $post->ID, 'es_venue_name' ),

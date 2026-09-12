@@ -130,7 +130,22 @@ class REST_Controller {
 			'category' => array(
 				'type'              => 'string',
 				'required'          => false,
-				'sanitize_callback' => 'sanitize_title',
+				// Without an explicit default, get_param() returns null for
+				// an omitted arg — Events_Repository now guards against that
+				// itself too, but this keeps the two in agreement.
+				'default'           => '',
+				// Not bare 'sanitize_title': WordPress calls sanitize
+				// callbacks as ($value, $request, $param) — three args.
+				// sanitize_title()'s own signature is ($title,
+				// $fallback_title, $context), so $request lands in
+				// $fallback_title. When $value sanitizes to '' (i.e. on
+				// every request that omits ?category=), sanitize_title()
+				// falls back to $fallback_title — meaning it returns the
+				// WP_REST_Request object itself. Wrapping it forces the
+				// call to only ever pass the one argument it's meant for.
+				'sanitize_callback' => static function ( $value ) {
+					return \sanitize_title( (string) $value );
+				},
 				'validate_callback' => static function ( $value ) {
 					// Same charset WordPress enforces on slugs; a category
 					// that doesn't exist just yields zero results, not an error.

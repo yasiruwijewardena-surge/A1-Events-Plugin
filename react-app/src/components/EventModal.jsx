@@ -1,11 +1,14 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
 
 // Full event details popup. Closable via the close button, an overlay
 // click, or Escape. Traps focus while open and restores it on close.
 export default function EventModal({ event, onClose }) {
   const dialogRef = useRef(null);
-  const titleId = 'event-modal-title';
+  // useId(), not a string literal — the shortcode supports more than one
+  // instance per page, and a hardcoded id would collide (duplicate DOM
+  // ids, and aria-labelledby pointing at the wrong instance's heading).
+  const titleId = useId();
 
   useFocusTrap(dialogRef, onClose);
 
@@ -38,11 +41,20 @@ export default function EventModal({ event, onClose }) {
           ×
         </button>
 
-        <img
-          className="event-modal__thumb"
-          src={event.thumbnail}
-          alt={event.thumbnailAlt || ''}
-        />
+        {event.thumbnail ? (
+          <img
+            className="event-modal__thumb"
+            src={event.thumbnail}
+            alt={event.thumbnailAlt || ''}
+            width={event.thumbnailWidth || undefined}
+            height={event.thumbnailHeight || undefined}
+          />
+        ) : (
+          <div
+            className="event-modal__thumb event-modal__thumb--placeholder"
+            aria-hidden="true"
+          />
+        )}
         <h2 id={titleId} className="event-modal__title">
           {event.title}
         </h2>
@@ -62,8 +74,10 @@ export default function EventModal({ event, onClose }) {
         </dl>
         <div
           className="event-modal__description"
-          // Description comes from WordPress post content (already sanitized
-          // server-side by wp_kses via the REST API).
+          // Events_Repository::normalise() runs post_content through
+          // wp_kses_post() (not the raw the_content filter chain — see
+          // its own comment for why), so this is already sanitized HTML
+          // by the time it reaches the browser, not arbitrary content.
           dangerouslySetInnerHTML={{ __html: event.description }}
         />
 

@@ -25,6 +25,11 @@ export function normalizeEvent(raw) {
     categorySlugs: categories.map((c) => c.slug),
     thumbnail: raw.thumbnail?.url || '',
     thumbnailAlt: raw.thumbnail?.alt || '',
+    // Carried through so <img> can set width/height and reserve its
+    // aspect ratio before the file has loaded, instead of the layout
+    // jumping once it does.
+    thumbnailWidth: raw.thumbnail?.width || null,
+    thumbnailHeight: raw.thumbnail?.height || null,
     startDate,
     endDate,
     dateLabel: startDate ? formatDate(startDate) : '',

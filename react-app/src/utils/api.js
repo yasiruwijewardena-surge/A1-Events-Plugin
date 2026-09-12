@@ -31,9 +31,15 @@ export async function fetchEvents(restUrl, params = {}) {
 }
 
 /**
- * Fetches the available filter options (categories + locations), so the
- * filter controls are driven by real data rather than derived from
- * whatever page of events happens to be loaded.
+ * Fetches the available filter options. Only the `categories` half is
+ * currently used (by useEvents.js, for the category dropdown, since
+ * category filtering is a real server-side query and any category is
+ * always a valid choice). `locations` is intentionally ignored — location
+ * filtering is client-side over whatever page is already loaded, so
+ * useEvents.js derives its options from those loaded events instead;
+ * offering a server-wide location that can't narrow the current page
+ * would be a dead option. The route still returns both — it's public and
+ * harmless, and a future server-side location filter could start using it.
  *
  * @param {string} restUrl Namespace root.
  * @returns {Promise<{categories: {slug: string, name: string}[], locations: string[]}>}
