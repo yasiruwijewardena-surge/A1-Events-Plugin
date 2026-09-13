@@ -377,10 +377,12 @@ class Settings {
 			<option value="3" <?php \selected( $value, 3 ); ?>>3</option>
 			<option value="4" <?php \selected( $value, 4 ); ?>>4</option>
 		</select>
-		<p class="description">
-			<?php \esc_html_e( 'Only meaningful when the layout is Grid — List and Compact ignore this.', 'events-showcase' ); ?>
-		</p>
 		<?php
+		// No description here — print_columns_visibility_script() already
+		// hides this field's entire row whenever Layout isn't "Grid," so
+		// the "only meaningful for Grid" caveat a static description would
+		// state is never something a visitor actually needs to read: the
+		// field simply isn't there to ask about otherwise.
 	}
 
 	/**
@@ -691,7 +693,7 @@ class Settings {
 			.events-showcase-settings .form-table {
 				background: #fff;
 				border: 1px solid #c3c4c7;
-				border-radius: 4px;
+				border-radius: 8px;
 				box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 				max-width: 760px;
 				margin: 0 0 2rem;
@@ -711,14 +713,28 @@ class Settings {
 				max-width: 460px;
 			}
 
+			/* Rounded to match the cards below them, rather than the sharp
+			 * corners wp-admin's own default .nav-tab gives every tab. */
 			.events-showcase-settings .nav-tab-wrapper {
 				margin-bottom: 1.5rem;
+			}
+
+			.events-showcase-settings .nav-tab {
+				border-radius: 8px 8px 0 0;
+			}
+
+			/* Native selects/number inputs default to square corners
+			 * regardless of theme — set explicitly so every control on the
+			 * page shares the same rounding as its surrounding card. */
+			.events-showcase-settings select,
+			.events-showcase-settings input[type="number"] {
+				border-radius: 6px;
 			}
 
 			.events-showcase-settings .es-help {
 				background: #fff;
 				border: 1px solid #c3c4c7;
-				border-radius: 4px;
+				border-radius: 8px;
 				box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 				max-width: 760px;
 				padding: 0.5rem 2rem 1.5rem;
@@ -747,7 +763,7 @@ class Settings {
 			.events-showcase-settings .es-help__example {
 				background: #f6f7f7;
 				border: 1px solid #dcdcde;
-				border-radius: 4px;
+				border-radius: 6px;
 				padding: 0.75rem 1rem;
 				margin: 0 0 0.5rem;
 				overflow-x: auto;
