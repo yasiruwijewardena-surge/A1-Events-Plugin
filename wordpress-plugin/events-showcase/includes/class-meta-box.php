@@ -69,8 +69,16 @@ class Meta_Box {
 	public function render( \WP_Post $post ): void {
 		\wp_nonce_field( self::NONCE_ACTION, self::NONCE_NAME );
 
-		$start    = $this->to_input_value( \get_post_meta( $post->ID, 'es_start_datetime', true ) );
-		$end      = $this->to_input_value( \get_post_meta( $post->ID, 'es_end_datetime', true ) );
+		$start = $this->to_input_value( \get_post_meta( $post->ID, 'es_start_datetime', true ) );
+		$end   = $this->to_input_value( \get_post_meta( $post->ID, 'es_end_datetime', true ) );
+
+		// A suggestion in the field's value attribute, not a saved value —
+		// nothing is written to post meta from this; it only takes effect
+		// if the editor saves the form with this value still in place.
+		if ( '' === $end && '' !== $start ) {
+			$end = $this->suggested_end_value( $start );
+		}
+
 		$venue    = \get_post_meta( $post->ID, 'es_venue_name', true );
 		$location = \get_post_meta( $post->ID, 'es_location', true );
 		$url      = \get_post_meta( $post->ID, 'es_external_url', true );
@@ -276,6 +284,26 @@ class Meta_Box {
 		}
 
 		\update_post_meta( $post_id, $key, $value );
+	}
+
+	/**
+	 * Start-plus-default-duration, in datetime-local input format —
+	 * Settings::get( 'default_duration' ) is minutes, so this is purely
+	 * additive arithmetic on the same wall-clock value already in the
+	 * start field, no timezone conversion involved.
+	 *
+	 * @param string $start_input Already-populated start field value.
+	 * @return string
+	 */
+	private function suggested_end_value( string $start_input ): string {
+		$start = \DateTime::createFromFormat( 'Y-m-d\TH:i', $start_input );
+		if ( ! $start ) {
+			return '';
+		}
+
+		$start->modify( '+' . (int) Settings::get( 'default_duration' ) . ' minutes' );
+
+		return $start->format( 'Y-m-d\TH:i' );
 	}
 
 	/**

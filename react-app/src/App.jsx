@@ -39,8 +39,13 @@ export default function App({ config, initialData }) {
     containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  // Both modifiers always applied, regardless of layout — events.css
+  // scopes the columns override to grid specifically (it's a no-op
+  // class otherwise), so there's no need to conditionally omit it here.
+  const wrapperClassName = `events-showcase events-showcase--${config.layout} events-showcase--cols-${config.columns}`;
+
   return (
-    <div className="events-showcase" ref={containerRef}>
+    <div className={wrapperClassName} ref={containerRef}>
       <div className="events-showcase__controls">
         <SearchBox value={search} onChange={setSearch} />
         <EventFilters

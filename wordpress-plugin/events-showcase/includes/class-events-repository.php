@@ -60,6 +60,14 @@ class Events_Repository {
 	 * @return array{events: array, total: int, pages: int, last_modified: ?string}
 	 */
 	public function get_events( array $args = array() ): array {
+		// Hardcoded, not Settings::get() — this class takes explicit,
+		// already-resolved arguments and stays a pure data layer.
+		// Resolving the *actual* default (shortcode attribute → saved
+		// option → this hardcoded fallback) is each caller's job: see
+		// Shortcode::parse_atts() and REST_Controller::events_args().
+		// A caller that omits 'show' entirely — which neither of those
+		// two ever does — lands here as a last resort, not as the
+		// effective precedence chain.
 		$args = \wp_parse_args(
 			$args,
 			array(
@@ -67,7 +75,7 @@ class Events_Repository {
 				'per_page' => 10,
 				'page'     => 1,
 				'search'   => '',
-				'show'     => 'upcoming', // TODO: settings default
+				'show'     => 'upcoming',
 			)
 		);
 

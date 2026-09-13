@@ -589,3 +589,88 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* -------------------------------------------------------------------
+ * Layout presets: grid (styled above, the default), list, and compact.
+ * Every selector here has the same specificity as its counterpart
+ * above (two classes: the wrapper's modifier + the element being
+ * overridden), so this section works by being *later* in the file,
+ * including relative to the base grid's own media queries — deliberate,
+ * not incidental, and why this is the last thing in the file. No new
+ * colours or tokens: everything reuses --es-gap/--es-border/etc.
+ * ----------------------------------------------------------------- */
+
+/* Columns: overrides the grid's column count at the widest breakpoint
+ * only — the mobile/tablet rules above keep control below that, so a
+ * 4-column setting never produces 4 columns on a phone. The compound
+ * selector (both the layout and the columns modifier on the same
+ * wrapper element) scopes this to grid specifically — columns has no
+ * meaning for list or compact, and this way CSS enforces that on its
+ * own rather than App.jsx needing to conditionally omit the class. */
+@media (min-width: 1024px) {
+  .events-showcase--grid.events-showcase--cols-2 .events-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .events-showcase--grid.events-showcase--cols-4 .events-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* List: full-width rows, thumbnail left, details right. */
+.events-showcase--list .events-grid {
+  grid-template-columns: 1fr;
+}
+
+.events-showcase--list .event-card {
+  flex-direction: row;
+}
+
+.events-showcase--list .event-card__thumb {
+  width: 200px;
+  aspect-ratio: 4 / 3;
+  flex-shrink: 0;
+}
+
+.events-showcase--list .event-card__body {
+  justify-content: center;
+}
+
+@media (max-width: 639px) {
+  /* A 200px thumbnail beside text stops being "full-width rows" and
+   * starts being cramped on a phone — drop back to a stacked card
+   * below the same breakpoint the base grid switches at. */
+  .events-showcase--list .event-card {
+    flex-direction: column;
+  }
+
+  .events-showcase--list .event-card__thumb {
+    width: 100%;
+    aspect-ratio: 3 / 2;
+  }
+}
+
+/* Compact: no thumbnail, tighter spacing, denser type. */
+.events-showcase--compact .events-grid {
+  gap: 0.5rem;
+}
+
+/* Also hides .event-card__thumb--placeholder — the placeholder <div>
+ * always carries the base .event-card__thumb class too, so one
+ * selector covers both the real <img> and the no-image placeholder. */
+.events-showcase--compact .event-card__thumb {
+  display: none;
+}
+
+.events-showcase--compact .event-card__body {
+  padding: 0.65rem 0.85rem;
+  gap: 0.25rem;
+}
+
+.events-showcase--compact .event-card__title {
+  font-size: 0.9375rem;
+}
+
+.events-showcase--compact .event-card__meta {
+  font-size: 0.75rem;
+}

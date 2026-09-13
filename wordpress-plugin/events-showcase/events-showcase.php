@@ -21,6 +21,7 @@ define( 'EVENTS_SHOWCASE_DIR', \plugin_dir_path( __FILE__ ) );
 define( 'EVENTS_SHOWCASE_URL', \plugin_dir_url( __FILE__ ) );
 
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-post-type.php';
+require_once EVENTS_SHOWCASE_DIR . 'includes/class-settings.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-acf-fields.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-meta-box.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-events-repository.php';
@@ -38,6 +39,7 @@ require_once EVENTS_SHOWCASE_DIR . 'includes/class-assets.php';
  */
 function bootstrap() {
 	new Post_Type();
+	new Settings();
 
 	// Exactly one of these two actually registers anything: each checks
 	// ACF's presence itself and no-ops if it's on the wrong side of that

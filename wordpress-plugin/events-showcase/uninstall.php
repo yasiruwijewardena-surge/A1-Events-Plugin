@@ -12,6 +12,7 @@ defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 
 require_once __DIR__ . '/includes/class-post-type.php';
 require_once __DIR__ . '/includes/class-events-repository.php';
+require_once __DIR__ . '/includes/class-settings.php';
 
 // get_terms()/get_posts() below need the taxonomy and post type actually
 // registered, which they normally aren't yet during an uninstall request.
@@ -59,6 +60,7 @@ function uninstall_site() {
 	}
 
 	\delete_option( Events_Repository::VERSION_OPTION );
+	\delete_option( Settings::OPTION_NAME );
 
 	// No plugin-specific transients are set anywhere in this codebase
 	// (caching uses the object cache group below instead), so there is

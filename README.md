@@ -21,12 +21,14 @@ wordpress-plugin/
     events-showcase.php            Plugin bootstrap
     uninstall.php                  Deletes all plugin data when the plugin is removed
     includes/
-      class-post-type.php          Registers the `es_event` CPT + `es_event_category` taxonomy (REST-enabled) and the event fields' post meta schema
+      class-post-type.php          Registers the `es_event` CPT + `es_event_category` taxonomy (REST-enabled), the event fields' post meta schema, and backfills a missing start date on save
+      class-settings.php           Settings page (submenu under Events) + Settings::get() — the site-wide defaults every other class's precedence chain resolves through
       class-acf-fields.php         Registers an ACF field group for the event fields, if ACF is active
       class-meta-box.php           Built-in fallback admin UI for the same fields, if ACF is not active — no plugin dependency required
-      class-events-repository.php  Single source of truth for querying + normalising events — used by both the REST controller and the shortcode's SSR payload
+      class-events-repository.php  Single source of truth for querying + normalising events — used by the REST controller, the shortcode's SSR payload, and the Schema.org output
       class-rest-controller.php    events-showcase/v1/events and /filters REST routes
       class-shortcode.php          Registers [events_showcase]: mount element, inline JSON payload, no-JS fallback
+      class-schema.php             Outputs Schema.org Event JSON-LD in wp_head on singular event pages
       class-assets.php             Reads Vite's manifest.json, enqueues hashed JS/CSS, scoped to pages using the shortcode
     assets/build/                  Vite build output (generated, not committed — see .gitignore)
 
@@ -100,15 +102,52 @@ docs/                              Supporting notes / screenshots for submission
 ## Shortcode usage
 
 ```
-[events_showcase per-page="9" category="workshops" search="" show="upcoming"]
+[events_showcase per-page="9" category="workshops" search="" show="upcoming" layout="grid" columns="3"]
 ```
 
-| Attribute  | Default    | Description                                              |
-|------------|------------|-----------------------------------------------------------|
-| `per-page` | `12`       | Events per page, clamped 1–48.                             |
-| `category` | *(none)*   | Restrict to one `es_event_category` slug. An unknown slug falls back to no filter (never a silent empty grid). |
-| `search`   | *(none)*   | Initial search string, also seeds the search box's value.  |
-| `show`     | `upcoming` | `upcoming` (soonest first), `past` (most recent first), or `all` (everything, soonest first). |
+Every default below (`12`, `upcoming`, `grid`, `3`) is only the *hardcoded*
+fallback — see [Settings](#settings) for the actual precedence rule.
+
+| Attribute  | Hardcoded default | Description                                              |
+|------------|--------------------|-----------------------------------------------------------|
+| `per-page` | `12`               | Events per page, clamped 1–48.                             |
+| `category` | *(none)*           | Restrict to one `es_event_category` slug. An unknown slug falls back to no filter (never a silent empty grid). |
+| `search`   | *(none)*           | Initial search string, also seeds the search box's value.  |
+| `show`     | `upcoming`         | `upcoming` (soonest first), `past` (most recent first), or `all` (everything, soonest first). |
+| `layout`   | `grid`             | `grid` (cards in a responsive grid), `list` (full-width rows, thumbnail left), or `compact` (no thumbnail, denser type). |
+| `columns`  | `3`                | `2`, `3`, or `4` — the grid's column count at the widest breakpoint only. Only meaningful when `layout="grid"`. |
+
+## Settings
+
+**Events → Settings** in wp-admin (a submenu under the Events post type,
+not under the site's Settings menu — these are defaults for this one
+shortcode, not site-wide options). One option row
+(`events_showcase_settings`), built entirely on the WordPress Settings
+API.
+
+**Precedence, strictly: shortcode attribute → saved option → hardcoded
+default.** An explicit `[events_showcase show="past"]` always wins; an
+omitted attribute falls through to whatever's saved on the settings
+page; a fresh install with nothing saved falls through to the hardcoded
+default below. `Shortcode::parse_atts()` and
+`REST_Controller::events_args()` each implement this by sourcing their
+own `shortcode_atts()`/args-schema defaults from `Settings::get()` — the
+ordering falls out of how those two functions already work, rather than
+being hand-coded as an if/else chain.
+
+| Setting             | Default    | Applies to |
+|---------------------|------------|------------|
+| `default_show`      | `upcoming` | The shortcode's `show` attribute and the REST API's `show` param. |
+| `default_per_page`  | `12`       | The shortcode's `per-page` attribute and the REST API's `per_page` param. |
+| `default_layout`    | `grid`     | The shortcode's `layout` attribute. |
+| `default_columns`   | `3`        | The shortcode's `columns` attribute. Only meaningful for `layout="grid"`. |
+| `default_duration`  | `120` (minutes) | Pre-fills the end time in the event editor when a start time is set and no end time is given yet — a suggested value in the field, not something saved until the event itself is. |
+| `date_format`       | `site`     | The no-JS fallback list's date display. `site` matches WordPress's own Settings → General date format; `short`/`long` are fixed formats independent of it. |
+
+`Events_Repository` — the query layer — deliberately never reads these
+options itself. It takes explicit, already-resolved arguments and stays
+a pure data layer; resolving the precedence chain above is each caller's
+(Shortcode's, REST_Controller's) job, not the repository's.
 
 ## Setup
 
@@ -182,6 +221,32 @@ add_filter(
 ```
 
 Swap `42` for the ID of the page in question.
+
+## Design decisions
+
+Deliberate scope boundaries on the settings page, not gaps that were
+missed:
+
+**No custom CSS textarea.** WordPress already ships one — Appearance →
+Customize → Additional CSS — and it already does the one thing a
+plugin-specific textarea would: apply arbitrary CSS to the front end.
+Adding a second one here would mean storing and echoing user-supplied
+CSS from a second location, which is a sanitization surface (CSS can
+carry `url()` calls, `expression()` in older IE, `@import`) with no
+capability the built-in one doesn't already cover. There's nothing this
+plugin's version would do that the Customizer's doesn't, for the cost of
+one more thing to sanitize correctly.
+
+**No shortcode-instance discovery.** A settings UI listing "every place
+`[events_showcase]` is used on this site" sounds useful until it's
+wrong: `has_shortcode()` — the only mechanism available — can only see
+the shortcode when it's literally present in a post's `post_content`
+field (see Known limitations, above). It can't see one inside a widget,
+a reusable block or synced pattern, or most page-builder fields. A list
+built from that check would look authoritative — a clean table with
+checkmarks — while silently missing real instances, which is worse than
+having no such list at all: an admin trusting an incomplete list is
+worse off than one who knows to check manually.
 
 ## Deployment
 

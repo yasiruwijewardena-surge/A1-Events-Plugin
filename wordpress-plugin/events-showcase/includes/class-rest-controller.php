@@ -156,7 +156,11 @@ class REST_Controller {
 			'per_page' => array(
 				'type'              => 'integer',
 				'required'          => false,
-				'default'           => 10,
+				// Resolved fresh on every request (register_routes() runs
+				// on rest_api_init, which fires per-request, not once at
+				// load) — a saved option change takes effect immediately,
+				// same as the shortcode's own precedence chain.
+				'default'           => Settings::get( 'default_per_page' ),
 				'sanitize_callback' => 'absint',
 				'validate_callback' => static function ( $value ) {
 					return \is_numeric( $value ) && $value >= 1 && $value <= 100;
@@ -185,7 +189,7 @@ class REST_Controller {
 			'show'     => array(
 				'type'              => 'string',
 				'required'          => false,
-				'default'           => 'upcoming', // TODO: settings default
+				'default'           => Settings::get( 'default_show' ),
 				'sanitize_callback' => 'sanitize_key',
 				'validate_callback' => static function ( $value ) {
 					return \in_array( $value, array( 'upcoming', 'past', 'all' ), true );

@@ -115,6 +115,8 @@ class Shortcode {
 				data-category="<?php echo esc_attr( $args['category'] ); ?>"
 				data-search="<?php echo esc_attr( $args['search'] ); ?>"
 				data-show="<?php echo esc_attr( $args['show'] ); ?>"
+				data-layout="<?php echo esc_attr( $args['layout'] ); ?>"
+				data-columns="<?php echo esc_attr( $args['columns'] ); ?>"
 				<?php // Not required by the current routes (permission_callback is '__return_true' on both) — included so an authenticated endpoint added later doesn't need a markup change. ?>
 				data-nonce="<?php echo esc_attr( \wp_create_nonce( 'wp_rest' ) ); ?>"
 			></div>
@@ -130,16 +132,26 @@ class Shortcode {
 	/**
 	 * Sanitizes and clamps every attribute in one place.
 	 *
+	 * Precedence — shortcode attribute → saved option → hardcoded
+	 * default — comes for free from sourcing shortcode_atts()'s own
+	 * defaults array from Settings::get(): shortcode_atts() only fills in
+	 * a key the caller didn't pass, so an explicit attribute always wins,
+	 * and an omitted one falls through to whatever the option currently
+	 * resolves to (which itself falls back to Settings' own hardcoded
+	 * default if nothing's been saved).
+	 *
 	 * @param array $atts Raw shortcode attributes.
-	 * @return array{category: string, per_page: int, search: string, show: string}
+	 * @return array{category: string, per_page: int, search: string, show: string, layout: string, columns: string}
 	 */
 	private function parse_atts( array $atts ): array {
 		$atts = \shortcode_atts(
 			array(
 				'category' => '',
-				'per-page' => 12,
+				'per-page' => Settings::get( 'default_per_page' ),
 				'search'   => '',
-				'show'     => 'upcoming', // TODO: settings default
+				'show'     => Settings::get( 'default_show' ),
+				'layout'   => Settings::get( 'default_layout' ),
+				'columns'  => (string) Settings::get( 'default_columns' ),
 			),
 			$atts,
 			'events_showcase'
@@ -159,11 +171,23 @@ class Shortcode {
 			$show = 'upcoming';
 		}
 
+		$layout = \sanitize_key( $atts['layout'] );
+		if ( ! \in_array( $layout, array( 'grid', 'list', 'compact' ), true ) ) {
+			$layout = 'grid';
+		}
+
+		$columns = \sanitize_key( (string) $atts['columns'] );
+		if ( ! \in_array( $columns, array( '2', '3', '4' ), true ) ) {
+			$columns = '3';
+		}
+
 		return array(
 			'category' => $category,
 			'per_page' => max( 1, min( 48, (int) $atts['per-page'] ) ),
 			'search'   => \sanitize_text_field( (string) $atts['search'] ),
 			'show'     => $show,
+			'layout'   => $layout,
+			'columns'  => $columns,
 		);
 	}
 
@@ -230,7 +254,8 @@ class Shortcode {
 
 	/**
 	 * Formats an ISO 8601 datetime for human display, in the site's own
-	 * date/time format and timezone rather than a hardcoded one.
+	 * timezone rather than a hardcoded one, and in whichever date format
+	 * Settings::get( 'date_format' ) resolves to.
 	 *
 	 * @param string $iso8601 ISO 8601 datetime string.
 	 * @return string
@@ -243,6 +268,22 @@ class Shortcode {
 
 		// wp_date() (not date()) applies the site's timezone setting
 		// rather than the server's.
-		return \wp_date( \get_option( 'date_format' ) . ' ' . \get_option( 'time_format' ), $timestamp );
+		return \wp_date( $this->date_format() . ' ' . \get_option( 'time_format' ), $timestamp );
+	}
+
+	/**
+	 * The PHP date() format string for the current date_format setting.
+	 * 'site' is the only one that reads an option — 'short'/'long' are
+	 * fixed formats, not tied to whatever WordPress's own setting is.
+	 *
+	 * @return string
+	 */
+	private function date_format(): string {
+		$map = array(
+			'short' => 'j M Y',
+			'long'  => 'j F Y',
+		);
+
+		return $map[ Settings::get( 'date_format' ) ] ?? \get_option( 'date_format' );
 	}
 }
