@@ -500,14 +500,16 @@ class Settings {
 	}
 
 	/**
-	 * The "How to Use" tab: shortcode syntax, the full attribute table, and
-	 * a few ready-to-paste recipes. Static reference content, not tied to
-	 * the Settings API — plain escaped markup is all this needs.
+	 * The "How to Use" tab: how to add an event, the shortcode syntax and
+	 * its full attribute table, and a few ready-to-paste recipes. Static
+	 * reference content, not tied to the Settings API — plain escaped
+	 * markup is all this needs, except for the attribute table's "current
+	 * default" column, which is real (see help_attributes()).
 	 *
-	 * Kept roughly in sync with the shortcode section of README.md; that
-	 * file is the source of truth for anyone reading the repo, this is the
-	 * same information surfaced to someone who only has wp-admin, not a
-	 * checkout of the code.
+	 * Kept roughly in sync with README.md; that file is the source of
+	 * truth for anyone reading the repo, this is the same information
+	 * surfaced to someone who only has wp-admin, not a checkout of the
+	 * code.
 	 *
 	 * @return void
 	 */
@@ -515,12 +517,37 @@ class Settings {
 		$shortcode_tag = '[events_showcase]';
 		?>
 		<div class="es-help">
+			<h2><?php \esc_html_e( 'Adding events', 'events-showcase' ); ?></h2>
+			<p><?php \esc_html_e( 'Events are added under the Events menu in the sidebar', 'events-showcase' ); ?></p>
+			<ul class="es-help__list">
+				<li>
+					<strong><?php \esc_html_e( 'Start Date & Time is required.', 'events-showcase' ); ?></strong>
+					<?php \esc_html_e( 'An event saved without one will not appear in any listing"', 'events-showcase' ); ?>
+				</li>
+				<li>
+					<strong><?php \esc_html_e( 'Featured image', 'events-showcase' ); ?></strong>
+					<?php \esc_html_e( 'becomes the card and modal thumbnail. An event without one still works; the card just renders without an image.', 'events-showcase' ); ?>
+				</li>
+				<li>
+					<strong><?php \esc_html_e( 'Event Details', 'events-showcase' ); ?></strong>
+					<?php \esc_html_e( 'also holds End Date & Time (for multi-day events), All-day, Venue Name, Status, and External URL.', 'events-showcase' ); ?>
+				</li>
+			</ul>
+
+			<h3><?php \esc_html_e( 'Event status', 'events-showcase' ); ?></h3>
+			<p>
+				<?php \esc_html_e( 'An event can be Scheduled, Postponed, or Cancelled. A postponed or cancelled event still appears in every listing it otherwise would, marked with a badge, rather than being hidden.', 'events-showcase' ); ?>
+			</p>
+			<p>
+				<?php \esc_html_e( 'If Advanced Custom Fields is active, the same fields appear through ACF\'s own field group instead of this plugin\'s built-in box', 'events-showcase' ); ?>
+			</p>
+
 			<h2><?php \esc_html_e( 'The shortcode', 'events-showcase' ); ?></h2>
 			<p>
 				<?php
 				$intro = \sprintf(
 					/* translators: %s: the [events_showcase] shortcode tag, in a <code> element. */
-					\esc_html__( 'Drop %s into any page or post to show the events grid. Every attribute below is optional — an omitted one falls back to whatever the Settings tab has saved, and a fresh install falls back to the hardcoded default shown here.', 'events-showcase' ),
+					\esc_html__( 'Drop %s into any page or post to show the events grid. Every attribute below is optional — an omitted one falls back to whatever the Settings tab currently has saved. The table below shows those live values, not this plugin\'s shipped defaults.', 'events-showcase' ),
 					'<code>' . \esc_html( $shortcode_tag ) . '</code>'
 				);
 				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $intro is built entirely from esc_html()'d/esc_html__()'d pieces above; nothing raw reaches this echo.
@@ -532,7 +559,7 @@ class Settings {
 				<thead>
 					<tr>
 						<th><?php \esc_html_e( 'Attribute', 'events-showcase' ); ?></th>
-						<th><?php \esc_html_e( 'Default', 'events-showcase' ); ?></th>
+						<th><?php \esc_html_e( 'Current default', 'events-showcase' ); ?></th>
 						<th><?php \esc_html_e( 'Description', 'events-showcase' ); ?></th>
 					</tr>
 				</thead>
@@ -549,7 +576,13 @@ class Settings {
 
 			<h2><?php \esc_html_e( 'Related events', 'events-showcase' ); ?></h2>
 			<p>
-				<?php \esc_html_e( 'related="true" only finds a source event when the shortcode renders on that event\'s own singular page — anywhere else (a page, a post, an archive), it falls back to a plain listing instead of erroring. If the source event has no category, or nothing else shares one, it also falls back to a plain upcoming listing rather than showing an empty section.', 'events-showcase' ); ?>
+				<?php \esc_html_e( 'related="true" shows other events that share a category with the event currently being viewed, instead of a plain listing.', 'events-showcase' ); ?>
+			</p>
+			<p>
+				<?php \esc_html_e( 'It only finds a source event when the shortcode renders on that event\'s own singular page — anywhere else (a page, a post, an archive), it falls back to a plain listing instead of erroring.', 'events-showcase' ); ?>
+			</p>
+			<p>
+				<?php \esc_html_e( 'If the source event has no category, or nothing else shares one, it falls back to a plain upcoming listing instead of showing an empty section.', 'events-showcase' ); ?>
 			</p>
 			<p>
 				<?php \esc_html_e( 'Related listings are ordered by start date, the same as any other listing — not by how many categories an event shares with the source event.', 'events-showcase' ); ?>
@@ -560,14 +593,17 @@ class Settings {
 			<h3><?php \esc_html_e( 'Full events page', 'events-showcase' ); ?></h3>
 			<p><?php \esc_html_e( 'Search, filters, and pagination all on, using whatever this Settings tab has saved:', 'events-showcase' ); ?></p>
 			<pre class="es-help__example"><code>[events_showcase]</code></pre>
+			<p class="description"><?php \esc_html_e( 'What this looks like: the full browsing experience — search box, category and location dropdowns, and page numbers below the grid.', 'events-showcase' ); ?></p>
 
 			<h3><?php \esc_html_e( 'Homepage teaser', 'events-showcase' ); ?></h3>
 			<p><?php \esc_html_e( 'A handful of upcoming events with no search box or pager — a glance, not a browse interface:', 'events-showcase' ); ?></p>
 			<pre class="es-help__example"><code>[events_showcase filters="false" per-page="3" show="upcoming"]</code></pre>
+			<p class="description"><?php \esc_html_e( 'What this looks like: three event cards and nothing else — no search box, no filter dropdowns, no page numbers.', 'events-showcase' ); ?></p>
 
 			<h3><?php \esc_html_e( 'Related events on a single event page', 'events-showcase' ); ?></h3>
 			<p><?php \esc_html_e( 'Add this to the Event Details content (or a template) on the event\'s own singular view. filters defaults to false automatically here, so it doesn\'t need to be passed:', 'events-showcase' ); ?></p>
 			<pre class="es-help__example"><code>[events_showcase related="true" per-page="3"]</code></pre>
+			<p class="description"><?php \esc_html_e( 'What this looks like: a card grid of related events (or a fallback upcoming listing) with the same bare footprint as the teaser above — no search box, filters, or pager.', 'events-showcase' ); ?></p>
 		</div>
 		<?php
 	}
@@ -576,13 +612,24 @@ class Settings {
 	 * Row data for the Help tab's attribute table, kept separate from the
 	 * markup above so the (fairly long) copy doesn't crowd the HTML.
 	 *
+	 * The "default" column here is a live value for any attribute backed
+	 * by a Settings field (per-page, show, layout, columns) — sourced
+	 * through self::get(), the same accessor Shortcode::parse_atts() uses,
+	 * so this table can never show a stale shipped default once someone's
+	 * actually changed the Settings tab. category, search, and related
+	 * have no corresponding setting at all (by design — see the Settings
+	 * class docblock and README.md's "Design decisions" section), and
+	 * filters likewise has none (a per-instance presentation choice, not
+	 * a site-wide policy — see the filters attribute's own description
+	 * below): those four keep static values.
+	 *
 	 * @return array<int, array{attribute: string, default: string, description: string}>
 	 */
 	private function help_attributes(): array {
 		return array(
 			array(
 				'attribute'   => 'per-page',
-				'default'     => '12',
+				'default'     => (string) self::get( 'default_per_page' ),
 				'description' => \__( 'Events per page, clamped 1–48.', 'events-showcase' ),
 			),
 			array(
@@ -597,23 +644,23 @@ class Settings {
 			),
 			array(
 				'attribute'   => 'show',
-				'default'     => 'upcoming',
+				'default'     => (string) self::get( 'default_show' ),
 				'description' => \__( 'upcoming, past, or all.', 'events-showcase' ),
 			),
 			array(
 				'attribute'   => 'layout',
-				'default'     => 'grid',
+				'default'     => (string) self::get( 'default_layout' ),
 				'description' => \__( 'grid, list, or compact.', 'events-showcase' ),
 			),
 			array(
 				'attribute'   => 'columns',
-				'default'     => '3',
+				'default'     => (string) self::get( 'default_columns' ),
 				'description' => \__( '2, 3, or 4. Only meaningful when layout="grid".', 'events-showcase' ),
 			),
 			array(
 				'attribute'   => 'filters',
 				'default'     => 'true',
-				'description' => \__( 'Shows or hides the search box, category/location dropdowns, and pagination together. Defaults to false instead when related="true", unless set explicitly.', 'events-showcase' ),
+				'description' => \__( 'Shows or hides the search box, category/location dropdowns, and pagination together. Defaults to false instead when related="true", unless set explicitly. Not a Settings option — a per-instance choice.', 'events-showcase' ),
 			),
 			array(
 				'attribute'   => 'related',
@@ -704,6 +751,15 @@ class Settings {
 				padding: 0.75rem 1rem;
 				margin: 0 0 0.5rem;
 				overflow-x: auto;
+			}
+
+			.events-showcase-settings .es-help__list {
+				margin: 0 0 1rem;
+				padding-left: 1.25rem;
+			}
+
+			.events-showcase-settings .es-help__list li {
+				margin-bottom: 0.5rem;
 			}
 		</style>
 		<?php
