@@ -175,7 +175,9 @@ would be incoherent) — no need to pass it explicitly.
 not under the site's Settings menu — these are defaults for this one
 shortcode, not site-wide options). One option row
 (`events_showcase_settings`), built entirely on the WordPress Settings
-API.
+API. The page's own **How to Use** tab has the same shortcode/attribute
+reference as this README, for whoever's editing content and doesn't have
+a checkout of the repo open.
 
 **Precedence, strictly: shortcode attribute → saved option → hardcoded
 default.** An explicit `[events_showcase show="past"]` always wins; an

@@ -431,20 +431,196 @@ class Settings {
 		if ( ! \current_user_can( 'manage_options' ) ) {
 			return;
 		}
+
+		// Read-only navigation state, not a form submission — nothing here
+		// writes anything, so there's no nonce to verify, only a value to
+		// display the right tab from.
+		$tab = isset( $_GET['tab'] ) ? \sanitize_key( \wp_unslash( $_GET['tab'] ) ) : 'settings'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( ! \in_array( $tab, array( 'settings', 'help' ), true ) ) {
+			$tab = 'settings';
+		}
 		?>
 		<div class="wrap events-showcase-settings">
 			<h1><?php echo \esc_html( \get_admin_page_title() ); ?></h1>
-			<form action="options.php" method="post">
-				<?php
-				\settings_fields( self::OPTION_GROUP );
-				\do_settings_sections( self::PAGE_SLUG );
-				\submit_button();
-				?>
-			</form>
+
+			<h2 class="nav-tab-wrapper">
+				<a
+					href="<?php echo \esc_url( $this->tab_url( 'settings' ) ); ?>"
+					class="nav-tab <?php echo 'settings' === $tab ? 'nav-tab-active' : ''; ?>"
+				>
+					<?php \esc_html_e( 'Settings', 'events-showcase' ); ?>
+				</a>
+				<a
+					href="<?php echo \esc_url( $this->tab_url( 'help' ) ); ?>"
+					class="nav-tab <?php echo 'help' === $tab ? 'nav-tab-active' : ''; ?>"
+				>
+					<?php \esc_html_e( 'How to Use', 'events-showcase' ); ?>
+				</a>
+			</h2>
+
+			<?php if ( 'help' === $tab ) : ?>
+				<?php $this->render_help_tab(); ?>
+			<?php else : ?>
+				<form action="options.php" method="post">
+					<?php
+					\settings_fields( self::OPTION_GROUP );
+					\do_settings_sections( self::PAGE_SLUG );
+					\submit_button();
+					?>
+				</form>
+			<?php endif; ?>
 		</div>
 		<?php
 		$this->print_page_styles();
-		$this->print_columns_visibility_script();
+		// The elements this script looks for only exist on the Settings
+		// tab — harmless to print on the Help tab too (it no-ops when they
+		// aren't found), but there's no reason to.
+		if ( 'settings' === $tab ) {
+			$this->print_columns_visibility_script();
+		}
+	}
+
+	/**
+	 * Builds a same-page URL for a given tab, preserving the submenu's own
+	 * post_type/page query args rather than hardcoding admin.php or
+	 * assuming the current URL already has them.
+	 *
+	 * @param string $tab 'settings' or 'help'.
+	 * @return string
+	 */
+	private function tab_url( string $tab ): string {
+		return \add_query_arg(
+			array(
+				'post_type' => Post_Type::post_type(),
+				'page'      => self::PAGE_SLUG,
+				'tab'       => $tab,
+			),
+			\admin_url( 'edit.php' )
+		);
+	}
+
+	/**
+	 * The "How to Use" tab: shortcode syntax, the full attribute table, and
+	 * a few ready-to-paste recipes. Static reference content, not tied to
+	 * the Settings API — plain escaped markup is all this needs.
+	 *
+	 * Kept roughly in sync with the shortcode section of README.md; that
+	 * file is the source of truth for anyone reading the repo, this is the
+	 * same information surfaced to someone who only has wp-admin, not a
+	 * checkout of the code.
+	 *
+	 * @return void
+	 */
+	private function render_help_tab(): void {
+		$shortcode_tag = '[events_showcase]';
+		?>
+		<div class="es-help">
+			<h2><?php \esc_html_e( 'The shortcode', 'events-showcase' ); ?></h2>
+			<p>
+				<?php
+				$intro = \sprintf(
+					/* translators: %s: the [events_showcase] shortcode tag, in a <code> element. */
+					\esc_html__( 'Drop %s into any page or post to show the events grid. Every attribute below is optional — an omitted one falls back to whatever the Settings tab has saved, and a fresh install falls back to the hardcoded default shown here.', 'events-showcase' ),
+					'<code>' . \esc_html( $shortcode_tag ) . '</code>'
+				);
+				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $intro is built entirely from esc_html()'d/esc_html__()'d pieces above; nothing raw reaches this echo.
+				echo $intro;
+				?>
+			</p>
+
+			<table class="widefat striped es-help__table">
+				<thead>
+					<tr>
+						<th><?php \esc_html_e( 'Attribute', 'events-showcase' ); ?></th>
+						<th><?php \esc_html_e( 'Default', 'events-showcase' ); ?></th>
+						<th><?php \esc_html_e( 'Description', 'events-showcase' ); ?></th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php foreach ( $this->help_attributes() as $row ) : ?>
+						<tr>
+							<td><code><?php echo \esc_html( $row['attribute'] ); ?></code></td>
+							<td><?php echo \esc_html( $row['default'] ); ?></td>
+							<td><?php echo \esc_html( $row['description'] ); ?></td>
+						</tr>
+					<?php endforeach; ?>
+				</tbody>
+			</table>
+
+			<h2><?php \esc_html_e( 'Related events', 'events-showcase' ); ?></h2>
+			<p>
+				<?php \esc_html_e( 'related="true" only finds a source event when the shortcode renders on that event\'s own singular page — anywhere else (a page, a post, an archive), it falls back to a plain listing instead of erroring. If the source event has no category, or nothing else shares one, it also falls back to a plain upcoming listing rather than showing an empty section.', 'events-showcase' ); ?>
+			</p>
+			<p>
+				<?php \esc_html_e( 'Related listings are ordered by start date, the same as any other listing — not by how many categories an event shares with the source event.', 'events-showcase' ); ?>
+			</p>
+
+			<h2><?php \esc_html_e( 'Common recipes', 'events-showcase' ); ?></h2>
+
+			<h3><?php \esc_html_e( 'Full events page', 'events-showcase' ); ?></h3>
+			<p><?php \esc_html_e( 'Search, filters, and pagination all on, using whatever this Settings tab has saved:', 'events-showcase' ); ?></p>
+			<pre class="es-help__example"><code>[events_showcase]</code></pre>
+
+			<h3><?php \esc_html_e( 'Homepage teaser', 'events-showcase' ); ?></h3>
+			<p><?php \esc_html_e( 'A handful of upcoming events with no search box or pager — a glance, not a browse interface:', 'events-showcase' ); ?></p>
+			<pre class="es-help__example"><code>[events_showcase filters="false" per-page="3" show="upcoming"]</code></pre>
+
+			<h3><?php \esc_html_e( 'Related events on a single event page', 'events-showcase' ); ?></h3>
+			<p><?php \esc_html_e( 'Add this to the Event Details content (or a template) on the event\'s own singular view. filters defaults to false automatically here, so it doesn\'t need to be passed:', 'events-showcase' ); ?></p>
+			<pre class="es-help__example"><code>[events_showcase related="true" per-page="3"]</code></pre>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Row data for the Help tab's attribute table, kept separate from the
+	 * markup above so the (fairly long) copy doesn't crowd the HTML.
+	 *
+	 * @return array<int, array{attribute: string, default: string, description: string}>
+	 */
+	private function help_attributes(): array {
+		return array(
+			array(
+				'attribute'   => 'per-page',
+				'default'     => '12',
+				'description' => \__( 'Events per page, clamped 1–48.', 'events-showcase' ),
+			),
+			array(
+				'attribute'   => 'category',
+				'default'     => \__( '(none)', 'events-showcase' ),
+				'description' => \__( 'Restrict to one event category slug. Still applied when filters="false" — the visitor just can’t change it.', 'events-showcase' ),
+			),
+			array(
+				'attribute'   => 'search',
+				'default'     => \__( '(none)', 'events-showcase' ),
+				'description' => \__( 'Initial search string. Still applied when filters="false", same as category.', 'events-showcase' ),
+			),
+			array(
+				'attribute'   => 'show',
+				'default'     => 'upcoming',
+				'description' => \__( 'upcoming, past, or all.', 'events-showcase' ),
+			),
+			array(
+				'attribute'   => 'layout',
+				'default'     => 'grid',
+				'description' => \__( 'grid, list, or compact.', 'events-showcase' ),
+			),
+			array(
+				'attribute'   => 'columns',
+				'default'     => '3',
+				'description' => \__( '2, 3, or 4. Only meaningful when layout="grid".', 'events-showcase' ),
+			),
+			array(
+				'attribute'   => 'filters',
+				'default'     => 'true',
+				'description' => \__( 'Shows or hides the search box, category/location dropdowns, and pagination together. Defaults to false instead when related="true", unless set explicitly.', 'events-showcase' ),
+			),
+			array(
+				'attribute'   => 'related',
+				'default'     => 'false',
+				'description' => \__( 'Shows events related to the event currently being viewed instead of a plain listing. See "Related events" below.', 'events-showcase' ),
+			),
+		);
 	}
 
 	/**
@@ -486,6 +662,48 @@ class Settings {
 
 			.events-showcase-settings .description {
 				max-width: 460px;
+			}
+
+			.events-showcase-settings .nav-tab-wrapper {
+				margin-bottom: 1.5rem;
+			}
+
+			.events-showcase-settings .es-help {
+				background: #fff;
+				border: 1px solid #c3c4c7;
+				border-radius: 4px;
+				box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+				max-width: 760px;
+				padding: 0.5rem 2rem 1.5rem;
+			}
+
+			.events-showcase-settings .es-help h2 {
+				margin: 1.75rem 0 0.75rem;
+			}
+
+			.events-showcase-settings .es-help h2:first-child {
+				margin-top: 1.25rem;
+			}
+
+			.events-showcase-settings .es-help h3 {
+				margin: 1.25rem 0 0.4rem;
+			}
+
+			.events-showcase-settings .es-help__table {
+				margin: 0.5rem 0 1rem;
+			}
+
+			.events-showcase-settings .es-help__table code {
+				white-space: nowrap;
+			}
+
+			.events-showcase-settings .es-help__example {
+				background: #f6f7f7;
+				border: 1px solid #dcdcde;
+				border-radius: 4px;
+				padding: 0.75rem 1rem;
+				margin: 0 0 0.5rem;
+				overflow-x: auto;
 			}
 		</style>
 		<?php
