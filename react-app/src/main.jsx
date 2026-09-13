@@ -31,6 +31,12 @@ function mountAll() {
       layout: el.dataset.layout || 'grid',
       columns: el.dataset.columns || '3',
       nonce: el.dataset.nonce || '',
+      // Shortcode.php always prints this attribute (see render()), so an
+      // exact 'false' string is the only falsey spelling to check for —
+      // anything else, including the attribute being missing entirely (a
+      // build skew between an old shortcode call and a new bundle,
+      // vanishingly unlikely but cheap to guard), defaults open to true.
+      filters: el.dataset.filters !== 'false',
     };
 
     createRoot(el).render(

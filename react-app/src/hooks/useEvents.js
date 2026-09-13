@@ -65,7 +65,15 @@ export function useEvents(config, initialData) {
   // Category options come from the REST API's global list, independent of
   // what's currently loaded — selecting any of them is always valid since
   // it triggers a fresh server-side query.
+  //
+  // Skipped entirely when config.filters is false: App.jsx doesn't render
+  // EventFilters in that mode, so there's nothing to populate — firing
+  // this request anyway would just be a wasted round-trip on every page a
+  // filters="false" instance appears on (a homepage teaser, a related-
+  // events strip).
   useEffect(() => {
+    if (!config.filters) return undefined;
+
     let cancelled = false;
 
     fetchFilters(config.restUrl)
@@ -80,7 +88,7 @@ export function useEvents(config, initialData) {
     return () => {
       cancelled = true;
     };
-  }, [config.restUrl]);
+  }, [config.restUrl, config.filters]);
 
   // Resets to page 1 whenever a server-side query parameter changes, so a
   // new category/search doesn't stay stuck on a page number that may no

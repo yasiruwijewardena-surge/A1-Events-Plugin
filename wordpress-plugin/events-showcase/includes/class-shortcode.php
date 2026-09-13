@@ -85,15 +85,25 @@ class Shortcode {
 
 		$args = $this->parse_atts( $atts );
 
-		$result = $this->repository->get_events(
-			array(
-				'category' => $args['category'],
-				'per_page' => $args['per_page'],
-				'page'     => 1,
-				'search'   => $args['search'],
-				'show'     => $args['show'],
-			)
+		$query_args = array(
+			'category' => $args['category'],
+			'per_page' => $args['per_page'],
+			'page'     => 1,
+			'search'   => $args['search'],
+			'show'     => $args['show'],
 		);
+
+		// Only resolved (and only added to the query) when related="true" —
+		// see resolve_related_to() for what "resolved" means and why it can
+		// legitimately come back empty.
+		if ( $args['related'] ) {
+			$related_to = $this->resolve_related_to();
+			if ( null !== $related_to ) {
+				$query_args['related_to'] = $related_to;
+			}
+		}
+
+		$result = $this->repository->get_events( $query_args );
 
 		$wrapper_id = 'es-events-' . $instance;
 		$payload_id = 'es-events-data-' . $instance;
@@ -117,6 +127,8 @@ class Shortcode {
 				data-show="<?php echo esc_attr( $args['show'] ); ?>"
 				data-layout="<?php echo esc_attr( $args['layout'] ); ?>"
 				data-columns="<?php echo esc_attr( $args['columns'] ); ?>"
+				<?php // Always printed (not only when false) so main.jsx never has to guess what an absent attribute means. ?>
+				data-filters="<?php echo esc_attr( $args['filters'] ? 'true' : 'false' ); ?>"
 				<?php // Not required by the current routes (permission_callback is '__return_true' on both) — included so an authenticated endpoint added later doesn't need a markup change. ?>
 				data-nonce="<?php echo esc_attr( \wp_create_nonce( 'wp_rest' ) ); ?>"
 			></div>
@@ -141,9 +153,19 @@ class Shortcode {
 	 * default if nothing's been saved).
 	 *
 	 * @param array $atts Raw shortcode attributes.
-	 * @return array{category: string, per_page: int, search: string, show: string, layout: string, columns: string}
+	 * @return array{category: string, per_page: int, search: string, show: string, layout: string, columns: string, filters: bool, related: bool}
 	 */
 	private function parse_atts( array $atts ): array {
+		// Read straight off the raw, caller-supplied $atts — before
+		// shortcode_atts() merges in defaults — purely to decide what
+		// 'filters' should default to below. shortcode_atts() only ever
+		// falls back to a default when the key is entirely absent from the
+		// caller's own array, so an explicit filters="true" alongside
+		// related="true" still overrides whatever default we hand it here.
+		$related_requested = isset( $atts['related'] )
+			? \filter_var( $atts['related'], FILTER_VALIDATE_BOOLEAN )
+			: false;
+
 		$atts = \shortcode_atts(
 			array(
 				'category' => '',
@@ -152,6 +174,12 @@ class Shortcode {
 				'show'     => Settings::get( 'default_show' ),
 				'layout'   => Settings::get( 'default_layout' ),
 				'columns'  => (string) Settings::get( 'default_columns' ),
+				// A related-events strip with a search box is incoherent, so
+				// related="true" flips this default off — but only the
+				// default: see $related_requested above for why an explicit
+				// filters="true" still wins.
+				'filters'  => $related_requested ? 'false' : 'true',
+				'related'  => 'false',
 			),
 			$atts,
 			'events_showcase'
@@ -188,7 +216,37 @@ class Shortcode {
 			'show'     => $show,
 			'layout'   => $layout,
 			'columns'  => $columns,
+			// FILTER_VALIDATE_BOOLEAN (not a truthy cast) so filters="0" or
+			// filters="no" behave as false too, not just the literal string
+			// "false" — shortcode attributes are always strings, and authors
+			// spell "off" a few different ways.
+			'filters'  => \filter_var( $atts['filters'], FILTER_VALIDATE_BOOLEAN ),
+			'related'  => \filter_var( $atts['related'], FILTER_VALIDATE_BOOLEAN ),
 		);
+	}
+
+	/**
+	 * Resolves the "current event" a related="true" section is relative to.
+	 *
+	 * Only meaningful when this shortcode renders on an event's own
+	 * singular template — is_singular() is true there and
+	 * get_queried_object_id() is that event's post ID. Anywhere else (a
+	 * page, a blog post, an archive), there is no source event to relate
+	 * to, so this returns null and render() falls back to a plain listing
+	 * instead of erroring or rendering nothing: a shortcode that breaks
+	 * when moved to the wrong template is worse than one that degrades to
+	 * something sensible.
+	 *
+	 * @return int|null
+	 */
+	private function resolve_related_to(): ?int {
+		if ( ! \is_singular( Post_Type::post_type() ) ) {
+			return null;
+		}
+
+		$id = \get_queried_object_id();
+
+		return $id > 0 ? $id : null;
 	}
 
 	/**

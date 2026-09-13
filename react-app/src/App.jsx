@@ -44,17 +44,32 @@ export default function App({ config, initialData }) {
   // class otherwise), so there's no need to conditionally omit it here.
   const wrapperClassName = `events-showcase events-showcase--${config.layout} events-showcase--cols-${config.columns}`;
 
+  // Pagination is suppressed alongside the filter controls, not behind a
+  // separate attribute — a teaser/related strip showing a handful of
+  // events has no use for a pager, and both are really the same "is this
+  // a browse interface or a glance?" decision (see the filters attribute
+  // in README.md).
+  const showFilters = config.filters;
+
+  // Drives which of NoResults' two messages shows. Filters that are
+  // rendered but untouched, or not rendered at all, aren't "a filter
+  // applied" — only a real category/search/location value is, and only
+  // when there's a control to have set it in the first place.
+  const hasActiveFilter = showFilters && Boolean(search || filters.category || filters.location);
+
   return (
     <div className={wrapperClassName} ref={containerRef}>
-      <div className="events-showcase__controls">
-        <SearchBox value={search} onChange={setSearch} />
-        <EventFilters
-          filters={filters}
-          onChange={setFilters}
-          categories={categories}
-          locations={locations}
-        />
-      </div>
+      {showFilters && (
+        <div className="events-showcase__controls">
+          <SearchBox value={search} onChange={setSearch} />
+          <EventFilters
+            filters={filters}
+            onChange={setFilters}
+            categories={categories}
+            locations={locations}
+          />
+        </div>
+      )}
 
       {/* Visually hidden; announces to screen readers only. Silent on
           first render and on every keystroke — see resultsMessage in
@@ -71,12 +86,14 @@ export default function App({ config, initialData }) {
         </p>
       )}
 
-      {!loading && !error && filteredEvents.length === 0 && <NoResults />}
+      {!loading && !error && filteredEvents.length === 0 && (
+        <NoResults hasActiveFilter={hasActiveFilter} />
+      )}
 
       {!loading && !error && filteredEvents.length > 0 && (
         <>
           <EventsGrid events={filteredEvents} />
-          <Pagination page={page} pages={pages} onChange={handlePageChange} />
+          {showFilters && <Pagination page={page} pages={pages} onChange={handlePageChange} />}
         </>
       )}
     </div>

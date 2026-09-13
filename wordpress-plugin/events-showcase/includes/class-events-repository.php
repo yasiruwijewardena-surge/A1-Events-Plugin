@@ -51,11 +51,21 @@ class Events_Repository {
 	 * Queries published events.
 	 *
 	 * @param array $args {
-	 *     @type string $category Taxonomy term slug to filter by.
-	 *     @type int    $per_page Results per page.
-	 *     @type int    $page     Page number, 1-indexed.
-	 *     @type string $search   Free-text search term.
-	 *     @type string $show     'upcoming' (default), 'past', or 'all'.
+	 *     @type string   $category   Taxonomy term slug to filter by. Ignored
+	 *                                when $related_to is given — see there.
+	 *     @type int      $per_page   Results per page.
+	 *     @type int      $page       Page number, 1-indexed.
+	 *     @type string   $search     Free-text search term.
+	 *     @type string   $show       'upcoming' (default), 'past', or 'all'.
+	 *     @type int|null $related_to Post ID to build a "related events"
+	 *                                listing around, or null (default) for
+	 *                                a plain listing. When given: matches
+	 *                                any es_event_category term attached to
+	 *                                that post (replacing $category, not
+	 *                                combined with it) and excludes that
+	 *                                post from the results. Not exposed to
+	 *                                REST — see Shortcode::resolve_related_to()
+	 *                                for why this is shortcode-only.
 	 * }
 	 * @return array{events: array, total: int, pages: int, last_modified: ?string}
 	 */
@@ -71,11 +81,12 @@ class Events_Repository {
 		$args = \wp_parse_args(
 			$args,
 			array(
-				'category' => '',
-				'per_page' => 10,
-				'page'     => 1,
-				'search'   => '',
-				'show'     => 'upcoming',
+				'category'   => '',
+				'per_page'   => 10,
+				'page'       => 1,
+				'search'     => '',
+				'show'       => 'upcoming',
+				'related_to' => null,
 			)
 		);
 
@@ -87,6 +98,8 @@ class Events_Repository {
 		$args['category'] = (string) $args['category'];
 		$args['search']   = (string) $args['search'];
 
+		$related_to = ! empty( $args['related_to'] ) ? (int) $args['related_to'] : 0;
+
 		// REST and the shortcode both already validate 'show' against this
 		// same enum, but the repository doesn't take that on faith from
 		// any caller — an invalid value falls back to the default rather
@@ -94,6 +107,15 @@ class Events_Repository {
 		$show_values = array( 'upcoming', 'past', 'all' );
 		$args['show'] = \in_array( $args['show'], $show_values, true ) ? $args['show'] : 'upcoming';
 
+		// $related_to is already part of $args (and so already part of this
+		// hash) — no separate cache-busting mechanism needed for it. The
+		// term IDs derived from it below aren't hashed in explicitly, but
+		// they don't need to be: they're a pure function of $related_to at
+		// query time, so the same $related_to always derives the same
+		// terms for as long as that post's terms are unchanged, and the
+		// moment they *do* change, set_object_terms fires
+		// maybe_bust_cache_on_terms() below and invalidates every entry in
+		// the group anyway — including this one.
 		$cache_key = $this->cache_key( 'events_' . \md5( (string) \wp_json_encode( $args ) ) );
 		$cached    = \wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
@@ -119,6 +141,12 @@ class Events_Repository {
 		// is a product decision — a past-events list read chronologically
 		// forward would bury the events someone's most likely looking
 		// for (last month's) under events from years ago.
+		//
+		// A related listing ($related_to below) uses this same ordering —
+		// it is not ranked by how many categories an event shares with the
+		// source post. WP_Query has no built-in way to order by tax-match
+		// count without dropping to raw SQL, and the added complexity
+		// isn't worth it for a "related events" strip.
 		$order = 'past' === $args['show'] ? 'DESC' : 'ASC';
 
 		if ( 'all' !== $args['show'] ) {
@@ -143,7 +171,33 @@ class Events_Repository {
 			'orderby'        => array( 'start_clause' => $order ),
 		);
 
-		if ( '' !== $args['category'] ) {
+		if ( $related_to > 0 ) {
+			// A related listing replaces the plain category filter with the
+			// source event's own terms rather than trying to combine two
+			// independent tax_query clauses — $args['category'] is ignored
+			// in this branch.
+			$related_term_ids = \wp_get_post_terms( $related_to, Post_Type::taxonomy(), array( 'fields' => 'ids' ) );
+
+			if ( ! \is_wp_error( $related_term_ids ) && ! empty( $related_term_ids ) ) {
+				$query_args['tax_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query
+					array(
+						'taxonomy' => Post_Type::taxonomy(),
+						'field'    => 'term_id',
+						'terms'    => $related_term_ids,
+					),
+				);
+			}
+			// No terms on the source post: $query_args simply has no
+			// tax_query at all, which already is the "plain upcoming
+			// listing" fallback this method promises — see the class-level
+			// comment on the second fallback branch below for the other
+			// half of that promise (terms exist, but nothing else shares
+			// them).
+
+			// A related section must never list the event you're already
+			// reading, regardless of which branch above ran.
+			$query_args['post__not_in'] = array( $related_to );
+		} elseif ( '' !== $args['category'] ) {
 			$query_args['tax_query'] = array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query
 				array(
 					'taxonomy' => Post_Type::taxonomy(),
@@ -154,6 +208,18 @@ class Events_Repository {
 		}
 
 		$query = new \WP_Query( $query_args );
+
+		// Second half of the related-listing fallback: the source post had
+		// categories (a tax_query was built above), but nothing else on
+		// the site shares any of them, so this query came back empty.
+		// Re-run once, dropping the tax_query, rather than showing an
+		// empty "Related events" block — that reads as broken; three
+		// unrelated upcoming events do not. post__not_in stays, so the
+		// source event still never lists itself.
+		if ( $related_to > 0 && 0 === $query->found_posts && isset( $query_args['tax_query'] ) ) {
+			unset( $query_args['tax_query'] );
+			$query = new \WP_Query( $query_args );
+		}
 
 		$result = array(
 			'events'        => \array_map( array( $this, 'normalise' ), $query->posts ),

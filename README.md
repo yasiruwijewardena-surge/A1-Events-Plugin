@@ -111,11 +111,63 @@ fallback — see [Settings](#settings) for the actual precedence rule.
 | Attribute  | Hardcoded default | Description                                              |
 |------------|--------------------|-----------------------------------------------------------|
 | `per-page` | `12`               | Events per page, clamped 1–48.                             |
-| `category` | *(none)*           | Restrict to one `es_event_category` slug. An unknown slug falls back to no filter (never a silent empty grid). |
-| `search`   | *(none)*           | Initial search string, also seeds the search box's value.  |
+| `category` | *(none)*           | Restrict to one `es_event_category` slug. An unknown slug falls back to no filter (never a silent empty grid). Still applied when `filters="false"` — it just can't be changed by the visitor. |
+| `search`   | *(none)*           | Initial search string, also seeds the search box's value. Still applied when `filters="false"`, same as `category` above. |
 | `show`     | `upcoming`         | `upcoming` (soonest first), `past` (most recent first), or `all` (everything, soonest first). |
 | `layout`   | `grid`             | `grid` (cards in a responsive grid), `list` (full-width rows, thumbnail left), or `compact` (no thumbnail, denser type). |
 | `columns`  | `3`                | `2`, `3`, or `4` — the grid's column count at the widest breakpoint only. Only meaningful when `layout="grid"`. |
+| `filters`  | `true`             | Whether the search box, category/location dropdowns, and pagination render at all — one flag for all three, since they're really one "is this a browse interface or a glance?" decision. `false`/`0`/`no` all count as off. Defaults to `false` instead when `related="true"` (see below), but an explicit `filters="true"` still wins. Not a site-wide Settings option on purpose — the same site legitimately wants filters on its events page and off on a homepage teaser. |
+| `related`  | `false`            | Shows events related to the event currently being viewed, instead of a plain listing. See [Related events](#related-events) below. |
+
+## Related events
+
+`[events_showcase related="true"]`, placed on an **event's own singular
+template**, replaces the plain listing with events sharing that event's
+categories — useful as a "you might also like" strip at the bottom of an
+event page. Two fallbacks keep it from ever looking broken:
+
+- **No source event.** `related="true"` needs a current event to relate
+  to, resolved via `is_singular()` + `get_queried_object_id()` in
+  `Shortcode::render()`. Used anywhere else — a page, a blog post, an
+  archive — there's no such event, so it silently falls back to a plain
+  listing rather than erroring or rendering nothing.
+- **No shared categories.** If the source event has no categories, or no
+  other event shares any of them, it falls back to a plain upcoming
+  listing (still excluding the source event) rather than showing an empty
+  "Related events" block — three unrelated upcoming events read as
+  intentional; an empty section reads as broken.
+
+Related events are ordered by start date, the same as every other
+listing — not by how many categories they share with the source event,
+since ranking by tax-match count needs raw SQL that WP_Query doesn't
+support and isn't worth the complexity here.
+
+Related mode is **server-rendered only**: with `filters` and pagination
+both off, there's nothing for the React app to refetch, so `related` was
+deliberately never added as a REST parameter — a REST request has no page
+context, so supporting it there would mean accepting a caller-supplied
+post ID with no real consumer for it yet.
+
+## Three realistic configurations
+
+```
+[events_showcase]
+```
+The full events page: filters, search, and pagination all on, showing
+whatever `show`/`layout`/`columns` Settings resolves to.
+
+```
+[events_showcase filters="false" per-page="3" show="upcoming"]
+```
+A homepage teaser: three upcoming events, no search box or pager — just a
+glance, not a browse interface.
+
+```
+[events_showcase related="true" per-page="3"]
+```
+A related-events block dropped into the single-event template. `filters`
+defaults to `false` here automatically (a related strip with a search box
+would be incoherent) — no need to pass it explicitly.
 
 ## Settings
 
