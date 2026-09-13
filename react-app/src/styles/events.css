@@ -179,8 +179,6 @@
 }
 
 .events-showcase .event-card {
-  display: flex;
-  flex-direction: column;
   height: 100%;
   border: 1px solid var(--es-border);
   border-radius: var(--es-radius);
@@ -189,11 +187,35 @@
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Visual affordance only — the title link (below) is the sole focusable,
-   keyboard-activatable target, so this is a hover-only lift. */
+/* Hovering anywhere on the card triggers this — :hover on an ancestor
+   is active whenever the pointer is over any descendant, and the link
+   below fills the entire card, so there's nothing extra to wire up. */
 .events-showcase .event-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+/* The whole card is this one link (see EventCard.jsx) — it takes over
+ * the flex layout .event-card itself used to own, so the thumbnail and
+ * body still stack the same way, just one element lower. */
+.events-showcase .event-card__link {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Inset (negative offset), not the usual outward ring: .event-card has
+ * overflow:hidden (to clip the thumbnail to its rounded corners), which
+ * would otherwise clip an outward focus outline into invisibility. */
+.events-showcase .event-card__link:focus-visible {
+  outline: 2px solid var(--es-accent);
+  outline-offset: -2px;
+}
+
+.events-showcase .event-card__link:hover .event-card__title {
+  text-decoration: underline;
 }
 
 .events-showcase .event-card__thumb {
@@ -271,21 +293,6 @@
   line-height: 1.35;
   color: var(--es-text);
   font-family: inherit;
-}
-
-.events-showcase .event-card__title-link {
-  color: inherit;
-  text-decoration: none;
-}
-
-.events-showcase .event-card__title-link:hover {
-  text-decoration: underline;
-}
-
-.events-showcase .event-card__title-link:focus-visible {
-  outline: 2px solid var(--es-accent);
-  outline-offset: 2px;
-  border-radius: 3px;
 }
 
 .events-showcase .event-card__meta {
@@ -622,7 +629,7 @@
   grid-template-columns: 1fr;
 }
 
-.events-showcase--list .event-card {
+.events-showcase--list .event-card__link {
   flex-direction: row;
 }
 
@@ -640,7 +647,7 @@
   /* A 200px thumbnail beside text stops being "full-width rows" and
    * starts being cramped on a phone — drop back to a stacked card
    * below the same breakpoint the base grid switches at. */
-  .events-showcase--list .event-card {
+  .events-showcase--list .event-card__link {
     flex-direction: column;
   }
 

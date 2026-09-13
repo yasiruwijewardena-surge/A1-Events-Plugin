@@ -432,7 +432,7 @@ class Settings {
 			return;
 		}
 		?>
-		<div class="wrap">
+		<div class="wrap events-showcase-settings">
 			<h1><?php echo \esc_html( \get_admin_page_title() ); ?></h1>
 			<form action="options.php" method="post">
 				<?php
@@ -443,7 +443,52 @@ class Settings {
 			</form>
 		</div>
 		<?php
+		$this->print_page_styles();
 		$this->print_columns_visibility_script();
+	}
+
+	/**
+	 * A light layer of admin CSS scoped to this one page (via the
+	 * .events-showcase-settings wrapper class), printed inline rather
+	 * than a separately enqueued file — render_page() only ever runs
+	 * when this exact page is being viewed, so there's no risk of it
+	 * leaking onto other admin screens either way. Reuses WordPress's
+	 * own admin colour palette (the same greys/border colour as core's
+	 * .card class) rather than inventing a new one, so the page reads as
+	 * "a properly finished WP admin screen," not a custom-branded one —
+	 * do_settings_sections() already emits a real .form-table per
+	 * section; this just gives each one a boxed card and some breathing
+	 * room instead of the bare, unboxed default.
+	 *
+	 * @return void
+	 */
+	private function print_page_styles(): void {
+		?>
+		<style>
+			.events-showcase-settings .form-table {
+				background: #fff;
+				border: 1px solid #c3c4c7;
+				border-radius: 4px;
+				box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+				max-width: 760px;
+				margin: 0 0 2rem;
+				padding: 0.5rem 2rem;
+			}
+
+			.events-showcase-settings h2 {
+				margin: 2rem 0 0.75rem;
+			}
+
+			.events-showcase-settings .form-table th {
+				width: 220px;
+				padding-left: 0;
+			}
+
+			.events-showcase-settings .description {
+				max-width: 460px;
+			}
+		</style>
+		<?php
 	}
 
 	/**
