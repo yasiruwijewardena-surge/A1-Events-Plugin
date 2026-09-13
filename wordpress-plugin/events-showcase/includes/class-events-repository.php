@@ -55,6 +55,7 @@ class Events_Repository {
 	 *     @type int    $per_page Results per page.
 	 *     @type int    $page     Page number, 1-indexed.
 	 *     @type string $search   Free-text search term.
+	 *     @type string $show     'upcoming' (default), 'past', or 'all'.
 	 * }
 	 * @return array{events: array, total: int, pages: int, last_modified: ?string}
 	 */
@@ -66,6 +67,7 @@ class Events_Repository {
 				'per_page' => 10,
 				'page'     => 1,
 				'search'   => '',
+				'show'     => 'upcoming', // TODO: settings default
 			)
 		);
 
@@ -77,10 +79,47 @@ class Events_Repository {
 		$args['category'] = (string) $args['category'];
 		$args['search']   = (string) $args['search'];
 
+		// REST and the shortcode both already validate 'show' against this
+		// same enum, but the repository doesn't take that on faith from
+		// any caller — an invalid value falls back to the default rather
+		// than producing an unfiltered/mis-sorted query.
+		$show_values = array( 'upcoming', 'past', 'all' );
+		$args['show'] = \in_array( $args['show'], $show_values, true ) ? $args['show'] : 'upcoming';
+
 		$cache_key = $this->cache_key( 'events_' . \md5( (string) \wp_json_encode( $args ) ) );
 		$cached    = \wp_cache_get( $cache_key, self::CACHE_GROUP );
 		if ( false !== $cached ) {
 			return $cached;
+		}
+
+		// Named clauses, not the old top-level meta_key/orderby=meta_value
+		// pair: that shorthand and a second meta_query clause (the date
+		// comparison below) would both try to join wp_postmeta, and two
+		// unrelated joins against the same table produce duplicate result
+		// rows. A named clause lets 'orderby' point at *this* join
+		// specifically, however many others end up alongside it.
+		$meta_query = array(
+			'start_clause' => array(
+				'key'     => 'es_start_datetime',
+				'compare' => 'EXISTS',
+				'type'    => 'DATETIME',
+			),
+		);
+
+		// 'past' sorts most-recent-first (like a history/archive list);
+		// 'upcoming' and 'all' sort soonest-first (like an agenda). This
+		// is a product decision — a past-events list read chronologically
+		// forward would bury the events someone's most likely looking
+		// for (last month's) under events from years ago.
+		$order = 'past' === $args['show'] ? 'DESC' : 'ASC';
+
+		if ( 'all' !== $args['show'] ) {
+			$meta_query['date_clause'] = array(
+				'key'     => 'es_start_datetime',
+				'value'   => \current_time( 'mysql' ),
+				'compare' => 'upcoming' === $args['show'] ? '>=' : '<',
+				'type'    => 'DATETIME',
+			);
 		}
 
 		$query_args = array(
@@ -92,12 +131,8 @@ class Events_Repository {
 			'posts_per_page' => max( 1, min( 100, (int) $args['per_page'] ) ),
 			'paged'          => max( 1, (int) $args['page'] ),
 			's'              => \sanitize_text_field( (string) $args['search'] ),
-			// Y-m-d H:i:s sorts identically whether compared as a string
-			// or a date, so plain meta_value ordering is enough — no need
-			// for the slower meta_value_num / DATETIME cast.
-			'orderby'        => 'meta_value',
-			'meta_key'       => 'es_start_datetime',
-			'order'          => 'ASC',
+			'meta_query'     => $meta_query, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
+			'orderby'        => array( 'start_clause' => $order ),
 		);
 
 		if ( '' !== $args['category'] ) {
@@ -121,6 +156,15 @@ class Events_Repository {
 			'last_modified' => $this->latest_modified( $query->posts ),
 		);
 
+		// The cache key already hashes $args, so 'show' is covered like
+		// every other parameter — but unlike category/search, an
+		// upcoming/past split is time-based: an event can cross from
+		// upcoming to past without any save_post/delete/term-change firing
+		// to bust the cache. Worst case it lingers on the wrong side of
+		// the split for up to CACHE_TTL (300s) after it crosses. Accepted
+		// as-is — a version-bump-on-every-request cache would defeat the
+		// point of caching, and 5 minutes of staleness on a boundary this
+		// coarse isn't worth that trade.
 		\wp_cache_set( $cache_key, $result, self::CACHE_GROUP, self::CACHE_TTL );
 
 		return $result;
@@ -208,9 +252,20 @@ class Events_Repository {
 	public function normalise( \WP_Post $post ): array {
 		$item = array(
 			'id'             => $post->ID,
-			'title'          => \get_the_title( $post ),
+			// get_the_title()/get_the_excerpt() return HTML-entity-encoded
+			// text (e.g. a literal "&" stored as "&#038;") — correct for a
+			// theme that echoes it straight into HTML, but this value's
+			// consumers are JSON-then-React-text and esc_html() in the
+			// no-JS fallback, neither of which decodes HTML entities.
+			// Left un-decoded, an event titled "R&D" would literally show
+			// "R&#038;D" on screen. wp_specialchars_decode() reverses it
+			// back to plain text once, here, so every consumer gets the
+			// same correct value.
+			'title'          => \wp_specialchars_decode( \get_the_title( $post ), ENT_QUOTES ),
 			'permalink'      => \get_permalink( $post ),
-			'excerpt'        => \has_excerpt( $post ) ? \wp_strip_all_tags( \get_the_excerpt( $post ) ) : '',
+			'excerpt'        => \has_excerpt( $post )
+				? \wp_specialchars_decode( \wp_strip_all_tags( \get_the_excerpt( $post ) ), ENT_QUOTES )
+				: '',
 			// Deliberately not `apply_filters( 'the_content', ... )`: the
 			// shortcode itself runs *during* the_content on the host page,
 			// so filtering through the_content again here re-enters the
@@ -230,6 +285,12 @@ class Events_Repository {
 			'categories'     => $this->categories( $post->ID ),
 			'thumbnail'      => $this->thumbnail( $post->ID ),
 			'external_url'   => $this->meta( $post->ID, 'es_external_url' ),
+			'all_day'        => $this->boolean_meta( $post->ID, 'es_all_day' ),
+			// Deliberately not filtered by status here or in get_events():
+			// a postponed or cancelled event still needs to be findable by
+			// someone checking whether it's still on — hiding it would
+			// defeat the point of having a status field at all.
+			'status'         => $this->status_meta( $post->ID ),
 		);
 
 		return \apply_filters( 'events_showcase_rest_item', $item, $post );
@@ -257,6 +318,40 @@ class Events_Repository {
 		}
 
 		return (string) $value;
+	}
+
+	/**
+	 * Same ACF-fallback shape as meta(), but for the boolean all-day flag
+	 * — a real bool, never the string "1"/"" get_post_meta() would
+	 * otherwise hand back.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $key     Meta key (also the ACF field name).
+	 * @return bool
+	 */
+	private function boolean_meta( int $post_id, string $key ): bool {
+		$value = \get_post_meta( $post_id, $key, true );
+
+		if ( '' === $value && \function_exists( 'get_field' ) ) {
+			$value = \get_field( $key, $post_id );
+		}
+
+		return \rest_sanitize_boolean( $value );
+	}
+
+	/**
+	 * The event status, defaulting (and falling back on any unrecognised
+	 * stored value) to "scheduled" — covers events saved before this field
+	 * existed, which have no es_status meta at all yet.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string
+	 */
+	private function status_meta( int $post_id ): string {
+		$allowed = array( 'scheduled', 'postponed', 'cancelled' );
+		$value   = $this->meta( $post_id, 'es_status' );
+
+		return \in_array( $value, $allowed, true ) ? $value : 'scheduled';
 	}
 
 	/**

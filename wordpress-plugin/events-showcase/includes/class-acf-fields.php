@@ -90,6 +90,27 @@ class ACF_Fields {
 						'type'     => 'url',
 						'required' => 0,
 					),
+					array(
+						'key'          => 'field_es_all_day',
+						'label'        => __( 'All-day Event', 'events-showcase' ),
+						'name'         => 'es_all_day',
+						'type'         => 'true_false',
+						'ui'           => 1,
+						'instructions' => __( 'Hides the time and shows only the date, everywhere the event appears.', 'events-showcase' ),
+					),
+					array(
+						'key'           => 'field_es_status',
+						'label'         => __( 'Status', 'events-showcase' ),
+						'name'          => 'es_status',
+						'type'          => 'select',
+						'choices'       => array(
+							'scheduled' => __( 'Scheduled', 'events-showcase' ),
+							'postponed' => __( 'Postponed', 'events-showcase' ),
+							'cancelled' => __( 'Cancelled', 'events-showcase' ),
+						),
+						'default_value' => 'scheduled',
+						'instructions'  => __( 'Postponed and cancelled events still appear in listings — an event someone is checking on needs to be findable.', 'events-showcase' ),
+					),
 				),
 				'location' => array(
 					array(

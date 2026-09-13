@@ -8,7 +8,7 @@
  * Fetches one page of events.
  *
  * @param {string} restUrl Namespace root from the mount element's data-api.
- * @param {{category?: string, page?: number, perPage?: number, search?: string}} params
+ * @param {{category?: string, page?: number, perPage?: number, search?: string, show?: string}} params
  * @returns {Promise<{events: object[], total: number, pages: number}>}
  */
 export async function fetchEvents(restUrl, params = {}) {
@@ -16,6 +16,11 @@ export async function fetchEvents(restUrl, params = {}) {
 
   if (params.category) url.searchParams.set('category', params.category);
   if (params.search) url.searchParams.set('search', params.search);
+  // Always sent, not `if (params.show)`: 'upcoming' is a real, meaningful
+  // choice here, not an empty/absent value like category or search — the
+  // REST default already matches it, but relying on that silently would
+  // make config.show a no-op the moment the REST default ever changes.
+  url.searchParams.set('show', params.show || 'upcoming');
   url.searchParams.set('per_page', params.perPage || 12);
   url.searchParams.set('page', params.page || 1);
 

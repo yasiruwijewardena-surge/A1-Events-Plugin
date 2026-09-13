@@ -55,12 +55,25 @@ export default function EventModal({ event, onClose }) {
             aria-hidden="true"
           />
         )}
+        {/* Cancelled/postponed events still appear in the grid and open
+            normally — see Events_Repository::normalise() for why — so
+            this notice, not an absence from the listing, is what tells
+            someone checking on the event that something's changed. The
+            word is in the text itself, not conveyed by colour alone. */}
+        {event.status !== 'scheduled' && (
+          <p
+            className={`event-modal__notice event-modal__notice--${event.status}`}
+            role="status"
+          >
+            {event.status === 'cancelled' ? 'This event has been cancelled.' : 'This event has been postponed.'}
+          </p>
+        )}
         <h2 id={titleId} className="event-modal__title">
           {event.title}
         </h2>
         <dl className="event-modal__meta">
           <div>
-            <dt>Date &amp; time</dt>
+            <dt>{event.allDay ? 'Date' : 'Date & time'}</dt>
             <dd>{event.fullDateLabel}</dd>
           </div>
           <div>

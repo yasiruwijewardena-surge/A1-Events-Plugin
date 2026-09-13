@@ -9,6 +9,9 @@ export default function EventCard({ event, onSelect }) {
     onSelect();
   };
 
+  const isCancelled = event.status === 'cancelled';
+  const isPostponed = event.status === 'postponed';
+
   return (
     <article className="event-card">
       {event.thumbnail ? (
@@ -31,7 +34,20 @@ export default function EventCard({ event, onSelect }) {
         <div className="event-card__thumb event-card__thumb--placeholder" aria-hidden="true" />
       )}
       <div className="event-card__body">
-        <span className="event-card__category">{event.category}</span>
+        <p className="event-card__badges">
+          <span className="event-card__category">{event.category}</span>
+          {/* Cancelled/postponed events still appear here — see
+              Events_Repository::normalise() for why — so the badge is
+              the only signal that something's changed. Text says the
+              word, not just a colour, since colour alone isn't
+              perceivable by everyone. */}
+          {isCancelled && (
+            <span className="event-card__status event-card__status--cancelled">Cancelled</span>
+          )}
+          {isPostponed && (
+            <span className="event-card__status event-card__status--postponed">Postponed</span>
+          )}
+        </p>
         <h3 className="event-card__title">
           {/* The only focusable, keyboard-activatable element on the
               card — role="button" on the whole <article> would have made
@@ -48,7 +64,10 @@ export default function EventCard({ event, onSelect }) {
           </a>
         </h3>
         <p className="event-card__meta">
-          <span className="event-card__date">{event.dateLabel}</span>
+          <span className="event-card__date">
+            {event.dateLabel}
+            {event.allDay ? ' · All day' : ''}
+          </span>
           <span className="event-card__location">{event.location}</span>
         </p>
       </div>

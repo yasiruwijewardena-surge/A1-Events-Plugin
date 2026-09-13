@@ -172,6 +172,42 @@ class Post_Type {
 				'sanitize_callback' => 'esc_url_raw',
 			)
 		);
+
+		\register_post_meta(
+			$post_type,
+			'es_all_day',
+			array(
+				'type'              => 'boolean',
+				'single'            => true,
+				'show_in_rest'      => true,
+				'default'           => false,
+				// Core helper, not a hand-rolled cast: it already handles
+				// every truthy representation a checkbox/ACF true_false
+				// field can submit ('1', 'true', 'on', 1, true, ...).
+				'sanitize_callback' => 'rest_sanitize_boolean',
+			)
+		);
+
+		\register_post_meta(
+			$post_type,
+			'es_status',
+			array(
+				'type'              => 'string',
+				'single'            => true,
+				'show_in_rest'      => true,
+				'default'           => 'scheduled',
+				// A closure with exactly one declared parameter, not a
+				// bare function name — see the REST controller's category
+				// arg for why that distinction matters when WordPress
+				// calls a sanitize callback with more positional
+				// arguments than the value alone.
+				'sanitize_callback' => static function ( $value ) {
+					$allowed = array( 'scheduled', 'postponed', 'cancelled' );
+					$value   = \sanitize_key( (string) $value );
+					return \in_array( $value, $allowed, true ) ? $value : 'scheduled';
+				},
+			)
+		);
 	}
 
 	/**

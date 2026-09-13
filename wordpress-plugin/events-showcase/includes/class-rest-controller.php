@@ -80,6 +80,7 @@ class REST_Controller {
 				'per_page' => $request->get_param( 'per_page' ),
 				'page'     => $request->get_param( 'page' ),
 				'search'   => $request->get_param( 'search' ),
+				'show'     => $request->get_param( 'show' ),
 			)
 		);
 
@@ -179,6 +180,15 @@ class REST_Controller {
 					// Bounding length isn't about correctness — it's a
 					// cheap guard against a pathologically large LIKE query.
 					return \is_string( $value ) && \strlen( $value ) <= 200;
+				},
+			),
+			'show'     => array(
+				'type'              => 'string',
+				'required'          => false,
+				'default'           => 'upcoming', // TODO: settings default
+				'sanitize_callback' => 'sanitize_key',
+				'validate_callback' => static function ( $value ) {
+					return \in_array( $value, array( 'upcoming', 'past', 'all' ), true );
 				},
 			),
 		);

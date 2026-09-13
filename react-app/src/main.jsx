@@ -22,6 +22,10 @@ function mountAll() {
       perPage: Number(el.dataset.perPage) || 12,
       initialCategory: el.dataset.category || '',
       initialSearch: el.dataset.search || '',
+      // Fixed for this instance's lifetime, not a filter control — there's
+      // no UI to change it, so it just needs to keep flowing into every
+      // subsequent fetch the same way category/search do (see useEvents.js).
+      show: el.dataset.show || 'upcoming',
       nonce: el.dataset.nonce || '',
     };
 

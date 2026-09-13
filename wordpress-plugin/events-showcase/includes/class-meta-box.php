@@ -74,6 +74,8 @@ class Meta_Box {
 		$venue    = \get_post_meta( $post->ID, 'es_venue_name', true );
 		$location = \get_post_meta( $post->ID, 'es_location', true );
 		$url      = \get_post_meta( $post->ID, 'es_external_url', true );
+		$all_day  = (bool) \get_post_meta( $post->ID, 'es_all_day', true );
+		$status   = \get_post_meta( $post->ID, 'es_status', true ) ?: 'scheduled';
 		?>
 		<table class="form-table" role="presentation">
 			<tbody>
@@ -150,6 +152,45 @@ class Meta_Box {
 						>
 					</td>
 				</tr>
+				<tr>
+					<th scope="row"><?php esc_html_e( 'All-day event', 'events-showcase' ); ?></th>
+					<td>
+						<label for="es_all_day">
+							<input
+								type="checkbox"
+								id="es_all_day"
+								name="es_all_day"
+								value="1"
+								<?php checked( $all_day ); ?>
+							>
+							<?php esc_html_e( 'This is an all-day event', 'events-showcase' ); ?>
+						</label>
+						<p class="description">
+							<?php esc_html_e( 'Hides the time and shows only the date, everywhere the event appears.', 'events-showcase' ); ?>
+						</p>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row">
+						<label for="es_status"><?php esc_html_e( 'Status', 'events-showcase' ); ?></label>
+					</th>
+					<td>
+						<select id="es_status" name="es_status">
+							<option value="scheduled" <?php selected( $status, 'scheduled' ); ?>>
+								<?php esc_html_e( 'Scheduled', 'events-showcase' ); ?>
+							</option>
+							<option value="postponed" <?php selected( $status, 'postponed' ); ?>>
+								<?php esc_html_e( 'Postponed', 'events-showcase' ); ?>
+							</option>
+							<option value="cancelled" <?php selected( $status, 'cancelled' ); ?>>
+								<?php esc_html_e( 'Cancelled', 'events-showcase' ); ?>
+							</option>
+						</select>
+						<p class="description">
+							<?php esc_html_e( 'Postponed and cancelled events still appear in listings — an event someone is checking on needs to be findable.', 'events-showcase' ); ?>
+						</p>
+					</td>
+				</tr>
 			</tbody>
 		</table>
 		<?php
@@ -203,6 +244,17 @@ class Meta_Box {
 			} else {
 				\update_post_meta( $post_id, 'es_external_url', $url );
 			}
+		}
+
+		// Not behind isset(): an unchecked checkbox is simply absent from
+		// $_POST, so "not set" has to mean "false," not "leave unchanged" —
+		// otherwise unchecking the box and saving would never take effect.
+		\update_post_meta( $post_id, 'es_all_day', isset( $_POST['es_all_day'] ) ? 1 : 0 );
+
+		if ( isset( $_POST['es_status'] ) ) {
+			$allowed = array( 'scheduled', 'postponed', 'cancelled' );
+			$status  = \sanitize_key( \wp_unslash( $_POST['es_status'] ) );
+			\update_post_meta( $post_id, 'es_status', \in_array( $status, $allowed, true ) ? $status : 'scheduled' );
 		}
 	}
 

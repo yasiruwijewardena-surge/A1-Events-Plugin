@@ -19,7 +19,7 @@ import { normalizeEvent } from '../utils/normalizeEvent.js';
  * you're on. A location that only appears on page 2 isn't selectable
  * while viewing page 1.
  *
- * @param {{restUrl: string, perPage: number, initialCategory: string, initialSearch: string}} config
+ * @param {{restUrl: string, perPage: number, initialCategory: string, initialSearch: string, show: string}} config
  * @param {{events: object[], total: number, pages: number}|null} initialData
  *   Server-rendered payload from the shortcode's inline <script>, if any.
  *   When present, the first render skips its own fetch and hydrates from
@@ -113,6 +113,7 @@ export function useEvents(config, initialData) {
       search: debouncedSearch,
       perPage: config.perPage,
       page,
+      show: config.show,
     })
       .then((result) => {
         if (cancelled) return;
@@ -136,7 +137,7 @@ export function useEvents(config, initialData) {
     return () => {
       cancelled = true;
     };
-  }, [config.restUrl, config.perPage, filters.category, debouncedSearch, page]);
+  }, [config.restUrl, config.perPage, config.show, filters.category, debouncedSearch, page]);
 
   const locations = useMemo(
     () => [...new Set(events.map((e) => e.location).filter(Boolean))].sort(),

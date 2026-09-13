@@ -41,32 +41,43 @@ docs/                              Supporting notes / screenshots for submission
    - Featured image — used as the card/modal thumbnail.
    - Taxonomy `es_event_category` — used for category filtering.
    - Event fields `es_start_datetime`, `es_end_datetime`, `es_venue_name`,
-     `es_location`, `es_external_url` — registered as typed post meta via
-     `register_post_meta()`, independent of whichever UI wrote them.
-     Editable either through ACF (if installed — `class-acf-fields.php`)
-     or the plugin's own built-in meta box (`class-meta-box.php`), which
-     is the default and requires no other plugin. Exactly one of the two
-     UIs shows up on the edit screen, whichever applies.
+     `es_location`, `es_external_url`, `es_all_day`, `es_status` —
+     registered as typed post meta via `register_post_meta()`,
+     independent of whichever UI wrote them. Editable either through ACF
+     (if installed — `class-acf-fields.php`) or the plugin's own
+     built-in meta box (`class-meta-box.php`), which is the default and
+     requires no other plugin. Exactly one of the two UIs shows up on
+     the edit screen, whichever applies. `es_start_datetime` is treated
+     as required by both editing UIs — an event saved without one (e.g.
+     via a direct REST API create request, which doesn't enforce it)
+     won't appear in any listing; see `Events_Repository::get_events()`.
 2. `Events_Repository` (`class-events-repository.php`) is the *only*
    place that queries and shapes event data — both the REST controller
    and the shortcode call `get_events()` on it, so the two can never
    drift into different response shapes. It returns a flat, predictable
    array per event: `id, title, permalink, excerpt, content,
    start_datetime, end_datetime, venue, location, categories, thumbnail,
-   external_url` — dates as ISO 8601, never the raw MySQL format.
+   external_url, all_day, status` — dates as ISO 8601, never the raw
+   MySQL format.
 3. Two consumers read that data:
    - **REST API** — `GET /wp-json/events-showcase/v1/events` (filters:
-     `category`, `search`, `page`, `per_page`) and `.../v1/filters`
-     (available categories + locations, for data-driven filter controls).
+     `category`, `search`, `show`, `page`, `per_page`) and
+     `.../v1/filters` (available categories + locations, for
+     data-driven filter controls).
    - **The shortcode** (`class-shortcode.php`) calls the same
      `get_events()` directly and inlines the first page's result as JSON
      in a `<script type="application/json">` tag next to the mount
      element — so the initial render has zero network round-trips.
+   - **`class-schema.php`** is a third consumer: it calls
+     `Events_Repository::normalise()` directly (never a fresh query) to
+     print Schema.org `Event` JSON-LD in `wp_head` on each event's own
+     page, so structured data can't describe an event any differently
+     than the page itself does.
 4. `react-app/src/main.jsx` finds every `[data-events-showcase]` element
    on the page (supporting more than one shortcode instance per page),
    reads its `data-*` config (REST namespace root, per-page, initial
-   category/search), parses its sibling inline-payload `<script>` if
-   present, and mounts one independent `<App>` per element.
+   category/search/show), parses its sibling inline-payload `<script>`
+   if present, and mounts one independent `<App>` per element.
 5. `useEvents()` hydrates from that inline payload on first render (no
    fetch, no loading spinner), then calls the REST API for every
    subsequent filter/search change. Category filtering is server-side
@@ -75,17 +86,24 @@ docs/                              Supporting notes / screenshots for submission
    doesn't take a location param — see the comment at the top of
    `useEvents.js` for the reasoning.
 
+> **Behaviour note:** the default listing (`show=upcoming`) now hides
+> past events — previously every event ever created was returned,
+> oldest first. Pass `show="all"` (shortcode) or `?show=all` (REST) for
+> the old "everything" behaviour, or `show="past"` for a most-recent-
+> first archive view.
+
 ## Shortcode usage
 
 ```
-[events_showcase per-page="9" category="workshops" search=""]
+[events_showcase per-page="9" category="workshops" search="" show="upcoming"]
 ```
 
-| Attribute  | Default  | Description                                              |
-|------------|----------|-----------------------------------------------------------|
-| `per-page` | `12`     | Events per page, clamped 1–48.                             |
-| `category` | *(none)* | Restrict to one `es_event_category` slug. An unknown slug falls back to no filter (never a silent empty grid). |
-| `search`   | *(none)* | Initial search string, also seeds the search box's value.  |
+| Attribute  | Default    | Description                                              |
+|------------|------------|-----------------------------------------------------------|
+| `per-page` | `12`       | Events per page, clamped 1–48.                             |
+| `category` | *(none)*   | Restrict to one `es_event_category` slug. An unknown slug falls back to no filter (never a silent empty grid). |
+| `search`   | *(none)*   | Initial search string, also seeds the search box's value.  |
+| `show`     | `upcoming` | `upcoming` (soonest first), `past` (most recent first), or `all` (everything, soonest first). |
 
 ## Setup
 

@@ -91,6 +91,7 @@ class Shortcode {
 				'per_page' => $args['per_page'],
 				'page'     => 1,
 				'search'   => $args['search'],
+				'show'     => $args['show'],
 			)
 		);
 
@@ -113,6 +114,7 @@ class Shortcode {
 				data-per-page="<?php echo esc_attr( (string) $args['per_page'] ); ?>"
 				data-category="<?php echo esc_attr( $args['category'] ); ?>"
 				data-search="<?php echo esc_attr( $args['search'] ); ?>"
+				data-show="<?php echo esc_attr( $args['show'] ); ?>"
 				<?php // Not required by the current routes (permission_callback is '__return_true' on both) — included so an authenticated endpoint added later doesn't need a markup change. ?>
 				data-nonce="<?php echo esc_attr( \wp_create_nonce( 'wp_rest' ) ); ?>"
 			></div>
@@ -129,7 +131,7 @@ class Shortcode {
 	 * Sanitizes and clamps every attribute in one place.
 	 *
 	 * @param array $atts Raw shortcode attributes.
-	 * @return array{category: string, per_page: int, search: string}
+	 * @return array{category: string, per_page: int, search: string, show: string}
 	 */
 	private function parse_atts( array $atts ): array {
 		$atts = \shortcode_atts(
@@ -137,6 +139,7 @@ class Shortcode {
 				'category' => '',
 				'per-page' => 12,
 				'search'   => '',
+				'show'     => 'upcoming', // TODO: settings default
 			),
 			$atts,
 			'events_showcase'
@@ -151,10 +154,16 @@ class Shortcode {
 			$category = '';
 		}
 
+		$show = \sanitize_key( $atts['show'] );
+		if ( ! \in_array( $show, array( 'upcoming', 'past', 'all' ), true ) ) {
+			$show = 'upcoming';
+		}
+
 		return array(
 			'category' => $category,
 			'per_page' => max( 1, min( 48, (int) $atts['per-page'] ) ),
 			'search'   => \sanitize_text_field( (string) $atts['search'] ),
+			'show'     => $show,
 		);
 	}
 

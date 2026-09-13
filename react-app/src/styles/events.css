@@ -216,8 +216,15 @@
   flex: 1;
 }
 
+.events-showcase .event-card__badges {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .events-showcase .event-card__category {
-  align-self: flex-start;
   font-size: 0.6875rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -226,6 +233,29 @@
   background: color-mix(in srgb, var(--es-accent) 12%, transparent);
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
+}
+
+/* Status badges: colour is supplementary, not the only signal — the
+ * text itself already says "Cancelled"/"Postponed" (see EventCard.jsx),
+ * so these still communicate correctly for anyone who can't perceive
+ * the colour difference at all. */
+.events-showcase .event-card__status {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+}
+
+.events-showcase .event-card__status--cancelled {
+  color: color-mix(in srgb, #dc2626 70%, currentColor);
+  background: color-mix(in srgb, #dc2626 12%, transparent);
+}
+
+.events-showcase .event-card__status--postponed {
+  color: color-mix(in srgb, #b45309 70%, currentColor);
+  background: color-mix(in srgb, #b45309 12%, transparent);
 }
 
 /* Explicit color + font-family, not left to inherit: this is an <h3>,
@@ -356,6 +386,28 @@
      has to be set explicitly to reserve the same box. */
   aspect-ratio: 3 / 2;
   background: var(--es-border);
+}
+
+/* Prominent by design — a solid-background banner, not just coloured
+ * text — since this is the thing most likely to change someone's plans.
+ * The wording itself carries the meaning (see EventModal.jsx); colour is
+ * supplementary only. */
+.events-showcase .event-modal__notice {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.events-showcase .event-modal__notice--cancelled {
+  color: color-mix(in srgb, #dc2626 70%, currentColor);
+  background: color-mix(in srgb, #dc2626 12%, transparent);
+}
+
+.events-showcase .event-modal__notice--postponed {
+  color: color-mix(in srgb, #b45309 70%, currentColor);
+  background: color-mix(in srgb, #b45309 12%, transparent);
 }
 
 /* Same reasoning as .event-card__title above — an explicit color beats

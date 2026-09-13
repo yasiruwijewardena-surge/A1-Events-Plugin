@@ -26,6 +26,7 @@ require_once EVENTS_SHOWCASE_DIR . 'includes/class-meta-box.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-events-repository.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-rest-controller.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-shortcode.php';
+require_once EVENTS_SHOWCASE_DIR . 'includes/class-schema.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-assets.php';
 
 /**
@@ -51,6 +52,7 @@ function bootstrap() {
 	$repository = new Events_Repository();
 	new REST_Controller( $repository );
 	new Shortcode( $repository );
+	new Schema( $repository );
 
 	// No repository needed — Assets only reads the build manifest and
 	// checks the current request's post content, neither of which touches
