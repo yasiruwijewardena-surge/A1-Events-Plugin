@@ -21,6 +21,9 @@ class Post_Type {
 	public function __construct() {
 		\add_action( 'init', array( $this, 'register' ) );
 		\add_action( 'init', array( $this, 'register_meta' ) );
+		// Dynamic for the same reason as every other save_post_{post_type}
+		// hook in this plugin: Post_Type::post_type() is filterable.
+		\add_action( 'save_post_' . self::post_type(), array( $this, 'backfill_start_datetime' ) );
 	}
 
 	/**
@@ -208,6 +211,50 @@ class Post_Type {
 				},
 			)
 		);
+	}
+
+	/**
+	 * Backfills es_start_datetime from the post's own date when it's
+	 * empty, so "every event has a start date" holds by construction.
+	 *
+	 * This closes the gap at the source rather than in the query: without
+	 * it, Events_Repository::get_events() has to treat a missing start
+	 * date as a real case to handle, and there's no good way to handle
+	 * it — sorting such an event to either end of the list is arbitrary,
+	 * and an `OR NOT EXISTS` clause would complicate the ordering clause
+	 * for no benefit. With the invariant guaranteed here instead, the
+	 * query layer never has to think about it.
+	 *
+	 * Also covers a path the editing UIs' `required` attributes don't: a
+	 * post created directly via the REST API (register_post_meta() makes
+	 * es_start_datetime writable there, but nothing marks it required)
+	 * would otherwise silently produce an event invisible in every
+	 * listing, with no error anywhere.
+	 *
+	 * @param int $post_id Post being saved.
+	 * @return void
+	 */
+	public function backfill_start_datetime( int $post_id ): void {
+		// Autosaves/revisions fire this hook too but aren't the real post
+		// — nothing meaningful to backfill against a draft snapshot, and
+		// writing to one would just be discarded anyway.
+		if ( \wp_is_post_autosave( $post_id ) || \wp_is_post_revision( $post_id ) ) {
+			return;
+		}
+
+		if ( '' !== \get_post_meta( $post_id, 'es_start_datetime', true ) ) {
+			return;
+		}
+
+		$post = \get_post( $post_id );
+		if ( ! $post instanceof \WP_Post ) {
+			return;
+		}
+
+		// post_date is already a naive "Y-m-d H:i:s" string in the site's
+		// local time — the same convention es_start_datetime itself uses
+		// (see Events_Repository::iso8601()) — so no conversion is needed.
+		\update_post_meta( $post_id, 'es_start_datetime', $post->post_date );
 	}
 
 	/**

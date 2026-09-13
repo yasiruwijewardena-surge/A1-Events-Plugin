@@ -47,10 +47,15 @@ docs/                              Supporting notes / screenshots for submission
      (if installed — `class-acf-fields.php`) or the plugin's own
      built-in meta box (`class-meta-box.php`), which is the default and
      requires no other plugin. Exactly one of the two UIs shows up on
-     the edit screen, whichever applies. `es_start_datetime` is treated
-     as required by both editing UIs — an event saved without one (e.g.
-     via a direct REST API create request, which doesn't enforce it)
-     won't appear in any listing; see `Events_Repository::get_events()`.
+     the edit screen, whichever applies. `es_start_datetime` is required
+     by both editing UIs, and `Post_Type::backfill_start_datetime()`
+     guarantees it's never actually empty regardless — a post saved
+     without one (e.g. via a direct REST API create request, which
+     doesn't enforce the "required" attribute either UI form uses) gets
+     it backfilled from the post's own date on `save_post`. This is what
+     makes `Events_Repository::get_events()`'s ordering clause safe to
+     rely on unconditionally, rather than needing a fallback query path
+     for events with no date.
 2. `Events_Repository` (`class-events-repository.php`) is the *only*
    place that queries and shapes event data — both the REST controller
    and the shortcode call `get_events()` on it, so the two can never

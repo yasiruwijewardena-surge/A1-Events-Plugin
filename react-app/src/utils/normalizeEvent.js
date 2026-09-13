@@ -86,48 +86,50 @@ function formatFullDateOnly(date) {
   });
 }
 
-// Weekday + date, abbreviated — the "Sat 14 Oct 2026" half of the
-// same-day range format.
-function formatWeekdayDate(date) {
-  return date.toLocaleDateString(undefined, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
-function formatTime(date) {
-  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-}
-
-// Day + short month, with or without the year — the building block for
-// the two multi-day range formats ("14–16 Oct 2026", "28 Oct – 2 Nov 2026").
-function formatMonthDay(date, withYear) {
-  return date.toLocaleDateString(
-    undefined,
-    withYear
-      ? { day: 'numeric', month: 'short', year: 'numeric' }
-      : { day: 'numeric', month: 'short' },
-  );
-}
+// Pre-built Intl.DateTimeFormat instances, one per range "shape" — used
+// via .formatRange() below rather than hand-rolled collapsing logic.
+// formatRange() already handles same-day (it collapses two instants on
+// the same calendar day down to a single formatted result, even with a
+// date-only formatter — verified: a date-only formatter given 9am and
+// 5pm on the same day returns one date, not a same-day-to-itself range),
+// same-month, cross-month, and cross-year cases correctly for whatever
+// locale is active, which a hand-rolled version can only approximate
+// (see git history for the version this replaced).
+const RANGE_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
+const RANGE_WEEKDAY_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
+const RANGE_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+});
 
 /**
  * Formats a start/end date pair, collapsing sensibly:
- *  - no end date: unchanged single-date behavior (compact or full).
+ *  - no end date (or a reversed one — see below): unchanged single-date
+ *    behavior, compact or full.
  *  - same calendar day: one date, plus a start–end time range in the
  *    full form (unless all-day, which never shows a time at all).
- *  - same month: "14–16 Oct 2026".
- *  - spanning months or years: "28 Oct – 2 Nov 2026" (year shown once,
- *    unless the range crosses a year boundary, in which case both dates
- *    get their own year).
+ *  - different days: a range via Intl's own formatRange(), which
+ *    collapses "14 Oct – 16 Oct 2026" to "14–16 Oct 2026" and similarly
+ *    for cross-month/cross-year spans, on its own.
  *
- * Note on locale: this deliberately keeps using toLocaleDateString/
- * toLocaleString with an `undefined` locale rather than hardcoding one,
- * per the rest of this file — the exact word order and punctuation in
- * the multi-day forms therefore follows the visitor's own locale (e.g.
- * "Oct 28 – Nov 2, 2026" in en-US) rather than matching a single fixed
- * example character-for-character.
+ * Note on locale: this deliberately keeps using the platform's Intl
+ * formatting with an `undefined` locale rather than hardcoding one, per
+ * the rest of this file — the exact word order and punctuation follows
+ * the visitor's own locale rather than matching one fixed example
+ * character-for-character.
  *
  * @param {Date} startDate
  * @param {Date|null} endDate
@@ -135,28 +137,29 @@ function formatMonthDay(date, withYear) {
  * @returns {string}
  */
 function formatDateRange(startDate, endDate, { allDay = false, full = false } = {}) {
-  if (!endDate) {
+  // No end date, or end before start (a data-entry mistake — formatRange
+  // is spec'd to throw a RangeError for this, though not every engine
+  // enforces it, so this guard also protects against a silently garbled
+  // "16 – 14 Oct 2026" rather than relying on a catch). Either way, the
+  // sensible fallback is the same: just the start date.
+  if (!endDate || endDate < startDate) {
     if (!full) return formatDate(startDate);
     return allDay ? formatFullDateOnly(startDate) : formatFullDate(startDate);
   }
 
-  const sameDay = isSameDay(startDate, endDate);
-
-  if (sameDay) {
-    if (!full) return formatDate(startDate);
-    if (allDay) return formatWeekdayDate(startDate);
-    return `${formatWeekdayDate(startDate)}, ${formatTime(startDate)} – ${formatTime(endDate)}`;
+  if (!full) {
+    return RANGE_DATE_FORMATTER.formatRange(startDate, endDate);
   }
 
-  // Multi-day: never shows times, in either the compact or full form — a
-  // per-day time range isn't meaningful for a spanning event, and the
-  // spec's own examples agree (neither multi-day case includes one).
-  const sameYear = startDate.getFullYear() === endDate.getFullYear();
-  const sameMonth = sameYear && startDate.getMonth() === endDate.getMonth();
-
-  if (sameMonth) {
-    return `${startDate.getDate()}–${formatMonthDay(endDate, true)}`;
+  // Full (modal): same-day gets a weekday, plus — unless all-day — a
+  // time range. Multi-day never shows a time or a weekday, since a
+  // per-day time range isn't meaningful for a spanning event, regardless
+  // of whether it's all-day.
+  if (isSameDay(startDate, endDate)) {
+    return allDay
+      ? RANGE_WEEKDAY_FORMATTER.formatRange(startDate, endDate)
+      : RANGE_TIME_FORMATTER.formatRange(startDate, endDate);
   }
 
-  return `${formatMonthDay(startDate, !sameYear)} – ${formatMonthDay(endDate, true)}`;
+  return RANGE_DATE_FORMATTER.formatRange(startDate, endDate);
 }
