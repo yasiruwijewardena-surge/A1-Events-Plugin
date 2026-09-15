@@ -54,6 +54,19 @@ function wordpressReactGlobals() {
     'createPortal', 'findDOMNode', 'flushSync', 'render', 'unmountComponentAtNode', 'version',
   ];
 
+  // The guard has to live inside these virtual modules, not in main.jsx.
+  // Destructuring the globals happens while the module graph initialises,
+  // which is strictly before any statement in main.jsx's body runs — a
+  // check there would never be reached. Without this, a missing global
+  // surfaces as "Cannot destructure property 'useState' of undefined"
+  // pointing into a minified bundle, which says nothing about the actual
+  // cause. Throwing here names the cause and what to do about it.
+  //
+  // This cannot make the failure survivable — there is no React to fall
+  // back to — it only makes it diagnosable in seconds instead of an hour.
+  const guard = (global, handle) =>
+    `if (!window.${global}) { throw new Error("Events Showcase: window.${global} is undefined, so WordPress's \\"${handle}\\" script did not load before this bundle. The plugin declares it as an enqueue dependency, so something on this site has dequeued it, loaded it with async, or reordered the script queue — a JS optimisation plugin is the usual cause. See README.md, 'React comes from WordPress, not from the bundle'."); }`;
+
   return {
     name: 'wordpress-react-globals',
     apply: 'build',
@@ -64,6 +77,7 @@ function wordpressReactGlobals() {
     load(id) {
       if (id === VIRTUAL.react) {
         return [
+          guard('React', 'react'),
           'const React = window.React;',
           'export default React;',
           `export const { ${REACT_EXPORTS.join(', ')} } = React;`,
@@ -72,6 +86,7 @@ function wordpressReactGlobals() {
 
       if (id === VIRTUAL['react-dom']) {
         return [
+          guard('ReactDOM', 'react-dom'),
           'const ReactDOM = window.ReactDOM;',
           'export default ReactDOM;',
           `export const { ${REACT_DOM_EXPORTS.join(', ')} } = ReactDOM;`,
@@ -82,6 +97,7 @@ function wordpressReactGlobals() {
       // separate global for the /client entry point.
       if (id === VIRTUAL['react-dom/client']) {
         return [
+          guard('ReactDOM', 'react-dom'),
           'const ReactDOM = window.ReactDOM;',
           'export const createRoot = ReactDOM.createRoot;',
           'export const hydrateRoot = ReactDOM.hydrateRoot;',
@@ -100,6 +116,7 @@ function wordpressReactGlobals() {
         // given, which is why they are passed through in props rather than
         // handled separately here.
         return [
+          guard('React', 'react'),
           'const React = window.React;',
           'export const Fragment = React.Fragment;',
           'export function jsx(type, config, maybeKey) {',
