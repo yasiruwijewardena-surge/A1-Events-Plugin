@@ -19,6 +19,38 @@ export default function EventModal({ event, onClose }) {
     return () => previouslyFocused?.focus?.();
   }, []);
 
+  // Locks background scrolling while the dialog is open — without this,
+  // a scroll gesture over the overlay scrolls the page behind it, which
+  // makes the modal feel detached from the thing it is covering.
+  useEffect(() => {
+    const { body } = document;
+    const previousOverflow = body.style.overflow;
+    const previousPaddingRight = body.style.paddingRight;
+
+    // Removing the scrollbar reclaims its width, so the page silently
+    // widens by ~15px the moment the modal opens and snaps back on
+    // close. Replacing that width with padding holds the layout still.
+    // Zero on overlay-scrollbar platforms (macOS trackpad, mobile), so
+    // this is a no-op where there is nothing to compensate for.
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+
+    body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) {
+      // Added to whatever the theme already had rather than assigning a
+      // bare value — a theme with its own body padding would otherwise
+      // lose it for as long as the modal is open.
+      const current = parseFloat(window.getComputedStyle(body).paddingRight) || 0;
+      body.style.paddingRight = `${current + scrollbarWidth}px`;
+    }
+
+    return () => {
+      // Restores the previous inline values rather than clearing to '' —
+      // the theme may have set its own, and clearing would discard them.
+      body.style.overflow = previousOverflow;
+      body.style.paddingRight = previousPaddingRight;
+    };
+  }, []);
+
   const handleOverlayClick = (e) => {
     if (e.target === e.currentTarget) onClose();
   };

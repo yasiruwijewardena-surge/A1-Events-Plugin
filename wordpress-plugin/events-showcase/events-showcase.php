@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       Events Showcase
  * Description:       Headless events data layer — custom post type, a built-in fields UI (or ACF, if installed), and a REST API — for a React-driven events grid mounted via shortcode.
- * Version:           1.0.0
- * Requires at least: 6.0
+ * Version:           1.6.1
+ * Requires at least: 6.2
  * Requires PHP:      8.0
  * Author:            Yasiru Wijewardena
  * License:           GPL-2.0-or-later
@@ -16,7 +16,7 @@ namespace Events_Showcase;
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'EVENTS_SHOWCASE_VERSION', '1.0.0' );
+define( 'EVENTS_SHOWCASE_VERSION', '1.6.1' );
 define( 'EVENTS_SHOWCASE_DIR', \plugin_dir_path( __FILE__ ) );
 define( 'EVENTS_SHOWCASE_URL', \plugin_dir_url( __FILE__ ) );
 

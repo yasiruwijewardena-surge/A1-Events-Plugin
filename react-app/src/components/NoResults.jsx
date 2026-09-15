@@ -7,7 +7,16 @@
 // nobody has touched yet, has no query to "clear" — the "try a different
 // category" copy would be nonsense there, since there's nothing on
 // screen for it to refer to.
-export default function NoResults({ hasActiveFilter }) {
+// The unfiltered copy tracks the `show` attribute — a section configured
+// as show="past" or show="all" saying "no upcoming events" describes a
+// listing the visitor isn't looking at.
+const EMPTY_COPY = {
+  upcoming: 'There are no upcoming events right now.',
+  past: 'There are no past events to show.',
+  all: 'There are no events right now.',
+};
+
+export default function NoResults({ hasActiveFilter, show = 'upcoming' }) {
   return (
     <div className="events-showcase__no-results" role="status">
       {hasActiveFilter ? (
@@ -16,7 +25,7 @@ export default function NoResults({ hasActiveFilter }) {
           <p>Try clearing the search or picking a different category or location.</p>
         </>
       ) : (
-        <p>There are no upcoming events right now.</p>
+        <p>{EMPTY_COPY[show] || EMPTY_COPY.upcoming}</p>
       )}
     </div>
   );

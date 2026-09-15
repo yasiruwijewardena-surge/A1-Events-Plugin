@@ -7,10 +7,71 @@
  * (see the .event-card__title / .event-modal__title rules below).
  */
 
+/* ===================================================================
+ * PUBLIC THEMING API
+ *
+ * Every custom property below is a supported override point. Redeclare
+ * any of them on .events-showcase (or on a wrapper of your own, via the
+ * shortcode's `class` attribute) and the component follows:
+ *
+ *     .my-events {
+ *       --es-accent: #c026d3;
+ *       --es-radius: 4px;
+ *       --es-title-size: 1.5rem;
+ *     }
+ *
+ * This exists because the selectors in this file are deliberately
+ * specific — `.events-showcase .event-card__title` rather than a bare
+ * class — so they can beat a host theme's own rules (Divi ships a global
+ * `h1..h6 { color: #333 }`, which is exactly how the "invisible titles"
+ * bug happened). That specificity is the component's defence against an
+ * unknown theme, but it also means a themer writing the obvious
+ * `.event-card__title { ... }` loses to us.
+ *
+ * Rather than lower the defence, everything worth changing is reachable
+ * as a property, so a restyle never has to touch a selector at all.
+ * Properties are declared on .events-showcase and not :root, so two
+ * shortcode instances on one page can be themed independently.
+ *
+ * Not every literal in this file is a token, on purpose: an icon's 0.3rem
+ * gap or a badge's inner padding is an implementation detail, not a
+ * design decision anyone wants to override. Tokenising those would make
+ * the surface look configurable without making it meaningfully more so,
+ * and each one is a promise to keep.
+ *
+ * See README.md, "Theming", for the same list in table form.
+ * =================================================================== */
 .events-showcase {
-  --es-gap: 1.25rem;
-  --es-radius: 10px;
+  /* ── Spacing & shape ─────────────────────────────────────────── */
+  --es-gap: 1.5rem;
+  --es-stack-gap: 1.5rem;
+  --es-radius: 14px;
+  /* Nested boxes need a tighter corner than their container or they read
+   * as bulging out of it. Derived so overriding --es-radius alone keeps
+   * the two in proportion. */
+  --es-radius-inner: calc(var(--es-radius) - 0.4rem);
+  --es-control-radius: 8px;
+  --es-card-padding: 0.75rem;
 
+  /* ── Typography ──────────────────────────────────────────────── */
+  --es-font-size: 1rem;
+  --es-line-height: 1.5;
+  --es-title-size: 1.125rem;
+  --es-title-weight: 700;
+  --es-modal-title-size: 1.625rem;
+  --es-excerpt-size: 0.875rem;
+  /* These two are used together: the card excerpt's height ceiling is
+   * derived from both, so they must stay in the same place to stay in
+   * sync. Raise --es-excerpt-lines to show more of each excerpt. */
+  --es-excerpt-line-height: 1.55;
+  --es-excerpt-lines: 2;
+  --es-meta-size: 0.8125rem;
+  /* Small uppercase text: badges, control labels, the modal's <dt>s. */
+  --es-eyebrow-size: 0.6875rem;
+  --es-date-month-size: 0.75rem;
+  --es-date-day-size: 1.75rem;
+
+  /* ── Colour ──────────────────────────────────────────────────── */
   /* Inherit the theme's own text colour and font rather than asserting
    * one — this is an embedded component, not a standalone page. No
    * prefers-color-scheme handling on purpose: that media query reports
@@ -23,10 +84,33 @@
   --es-text-muted: color-mix(in srgb, currentColor 65%, transparent);
   --es-border: color-mix(in srgb, currentColor 15%, transparent);
 
-  /* Transparent by default: cards sit on the theme's background instead
-   * of punching a differently-coloured rectangle into the page. */
+  --es-accent: #2563eb;
+  --es-accent-contrast: #ffffff;
+
+  /* Status colours. Solid fills with white text — the card's status
+   * pills sit over a photograph, where a translucent tint is neither
+   * legible nor reliably the colour it claims to be. Both clear 4.5:1
+   * against their contrast colour. */
+  --es-danger: #b91c1c;
+  --es-danger-contrast: #ffffff;
+  --es-warning: #a16207;
+  --es-warning-contrast: #ffffff;
+
+  /* ── Surfaces ────────────────────────────────────────────────── */
+  /* Transparent by default: the component sits on the theme's background
+   * instead of punching a differently-coloured rectangle into the page. */
   --es-surface: transparent;
   --es-surface-raised: color-mix(in srgb, currentColor 4%, transparent);
+
+  /* The card is the one place that does assert an opaque surface. The
+   * design depends on the photo sitting on a panel that reads as a
+   * distinct object, and a 4%-of-currentColor tint is not a surface —
+   * over a mid-tone or patterned host background it disappears, taking
+   * the inset-image effect with it. Canvas follows the browser's own
+   * light/dark rather than hardcoding white, and the small currentColor
+   * mix keeps it tied to the host's palette instead of reading as a
+   * foreign white box. */
+  --es-card-surface: color-mix(in srgb, currentColor 3%, Canvas);
 
   /* Dedicated to text inputs/selects, not reused from --es-surface-raised:
    * a field the visitor types into needs a reliably legible fill, and 4%
@@ -38,9 +122,11 @@
    */
   --es-control-surface: color-mix(in srgb, currentColor 6%, Canvas);
 
-  --es-accent: #2563eb;
-  --es-accent-contrast: #ffffff;
-  --es-overlay: rgba(15, 15, 20, 0.6);
+  /* Darker than it looks like it needs to be on paper. At 0.6 over a
+   * white Divi page the backdrop still read as "page with a box on it";
+   * the dialog only starts to feel like a separate layer once the page
+   * behind it is genuinely suppressed. */
+  --es-overlay: rgba(15, 23, 42, 0.72);
 
   /* The modal is a standalone surface floating over a dimmed backdrop —
    * unlike the rest of the component, it isn't part of the page's
@@ -51,13 +137,45 @@
    */
   --es-modal-surface: Canvas;
 
+  /* ── Elevation ───────────────────────────────────────────────── */
+  /* Two steps rather than one: cards carry the resting shadow
+   * permanently so they read as objects on the page even before the
+   * pointer arrives, and swap to the lifted one on hover. Both are tuned
+   * soft and wide — a tight dark shadow reads as a 2010s card, and this
+   * component has to sit inside someone else's theme without looking
+   * pasted on. */
+  --es-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --es-shadow-lift: 0 12px 28px rgba(15, 23, 42, 0.12), 0 4px 8px rgba(15, 23, 42, 0.06);
+  --es-modal-shadow: 0 24px 60px rgba(15, 23, 42, 0.35);
+
+  /* ── Media ───────────────────────────────────────────────────── */
+  /* Card imagery is deliberately wider than it is tall. A 3/2 ratio gave
+   * a 530px-wide card a 352px-tall photo — roughly three quarters of the
+   * card — which buried the title and date under a picture. 16/10 keeps
+   * the image the card's anchor without letting it dominate. */
+  --es-media-ratio: 16 / 10;
+
+  /* ── Controls ────────────────────────────────────────────────── */
+  /* Consistent height across the search input and both selects, so the
+   * controls row reads as one bar rather than three differently-sized
+   * boxes that happen to be adjacent. */
+  --es-control-height: 2.75rem;
+
+  /* ── Motion ──────────────────────────────────────────────────── */
+  /* Set either to 0s to opt out of transitions without having to
+   * rewrite the rules that use them. prefers-reduced-motion is already
+   * honoured separately — this is for deliberate design choices, not
+   * accessibility. */
+  --es-transition: 0.2s ease;
+  --es-transition-fast: 0.15s ease;
+
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--es-stack-gap);
   color: inherit;
   font-family: inherit;
-  font-size: 1rem;
-  line-height: 1.5;
+  font-size: var(--es-font-size);
+  line-height: var(--es-line-height);
 }
 
 .events-showcase *,
@@ -66,9 +184,24 @@
   box-sizing: border-box;
 }
 
+/* height:auto is load-bearing, not tidiness. Every thumbnail carries
+ * width/height HTML attributes (EventCard.jsx sets them so the browser
+ * can reserve the box before the file arrives). Those attributes are a
+ * presentational hint that sets a used height — and `aspect-ratio` is
+ * ignored unless one of width/height resolves to `auto`. So without this
+ * rule the card's 16/10 ratio silently does nothing and each thumbnail
+ * renders at its own intrinsic height, giving a ragged grid of
+ * differently-tall cards.
+ *
+ * It looked correct on the target site only because Divi — like most
+ * themes — ships a global `img { height: auto }` that happened to
+ * neutralise the hint for us. Depending on the host theme to make our
+ * own layout work is exactly the kind of coupling this stylesheet's
+ * scoping is meant to avoid, and it breaks on any theme that doesn't. */
 .events-showcase img {
   display: block;
   max-width: 100%;
+  height: auto;
 }
 
 /* Controls: search + filters, wrap on narrow screens rather than overflow. */
@@ -79,24 +212,30 @@
   align-items: flex-end;
 }
 
+/* Capped rather than left to absorb every spare pixel: unconstrained, the
+ * search box grew to two thirds of a 1080px row and squeezed both selects
+ * against the right edge. It still flexes down on narrow screens. */
 .events-showcase .search-box {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  flex: 1 1 200px;
+  gap: 0.35rem;
+  flex: 1 1 260px;
+  max-width: 420px;
 }
 
 .events-showcase .search-box__label {
-  font-size: 0.8125rem;
+  font-size: var(--es-meta-size);
   font-weight: 600;
   color: var(--es-text-muted);
 }
 
 .events-showcase .search-box__input {
-  padding: 0.55rem 0.75rem;
+  height: var(--es-control-height);
+  padding: 0 0.9rem;
   border: 1px solid var(--es-border);
-  border-radius: 6px;
+  border-radius: var(--es-control-radius);
   font-size: 0.9375rem;
+  transition: border-color var(--es-transition-fast), box-shadow var(--es-transition-fast);
   background: var(--es-control-surface);
   /* CanvasText, not var(--es-text)/currentColor: this control's surface
    * is Canvas-based (independently light, not derived from the host's
@@ -105,6 +244,10 @@
    * here breaks exactly when the host is dark: light ambient text on
    * this control's light Canvas background is unreadable. */
   color: CanvasText;
+}
+
+.events-showcase .search-box__input:hover {
+  border-color: color-mix(in srgb, currentColor 28%, transparent);
 }
 
 .events-showcase .search-box__input:focus-visible {
@@ -121,8 +264,8 @@
 .events-showcase .event-filters__field {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.8125rem;
+  gap: 0.35rem;
+  font-size: var(--es-meta-size);
   font-weight: 600;
 }
 
@@ -137,20 +280,64 @@
   color: var(--es-text-muted);
 }
 
+/* appearance:none plus an inlined SVG chevron, rather than the platform
+ * select: the native control renders at a different height on every OS
+ * (and ignores most of what's set here on Windows), which is what made
+ * the three controls refuse to line up. The arrow is a data URI so it
+ * costs no request and can't 404 — and it is drawn in currentColor's
+ * stead as a fixed slate, since an SVG data URI can't read a CSS
+ * variable. padding-right leaves room for it. */
 .events-showcase .event-filters__field select {
-  padding: 0.5rem 0.65rem;
+  height: var(--es-control-height);
+  padding: 0 2.25rem 0 0.9rem;
   border: 1px solid var(--es-border);
-  border-radius: 6px;
-  background: var(--es-control-surface);
+  border-radius: var(--es-control-radius);
+  background-color: var(--es-control-surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%2364748b' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  appearance: none;
   /* CanvasText — same reasoning as .search-box__input above. */
   color: CanvasText;
   font-size: 0.9375rem;
-  min-width: 160px;
+  font-weight: 500;
+  min-width: 170px;
+  cursor: pointer;
+  transition: border-color var(--es-transition-fast);
+}
+
+.events-showcase .event-filters__field select:hover {
+  border-color: color-mix(in srgb, currentColor 28%, transparent);
 }
 
 .events-showcase .event-filters__field select:focus-visible {
   outline: 2px solid var(--es-accent);
   outline-offset: 1px;
+}
+
+/* Below the grid's own first breakpoint the controls stop being a row.
+ * Two 170px-min selects plus the search box can't share a 375px screen,
+ * and left to flex-wrap alone they end up as a ragged mix of full- and
+ * half-width boxes depending on label length. Stacking them is both
+ * tidier and gives every control a full-width tap target. */
+@media (max-width: 639px) {
+  .events-showcase .search-box {
+    max-width: none;
+    flex-basis: 100%;
+  }
+
+  .events-showcase .event-filters {
+    width: 100%;
+  }
+
+  .events-showcase .event-filters__field {
+    flex: 1 1 100%;
+  }
+
+  .events-showcase .event-filters__field select {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 /* Grid: 1 col mobile, 2 col tablet, 3+ col desktop. Scoped under the
@@ -178,21 +365,40 @@
   }
 }
 
+/* The image is inset inside the card's own padding rather than running
+ * edge to edge, which is what gives this card its "photo resting on a
+ * panel" look instead of the usual full-bleed header. That means the
+ * card no longer needs overflow:hidden to clip the image to its corners
+ * — .event-card__media does its own clipping — so the focus ring can go
+ * back to being a normal outward ring (see .event-card__link below). */
 .events-showcase .event-card {
   height: 100%;
+  padding: var(--es-card-padding);
   border: 1px solid var(--es-border);
   border-radius: var(--es-radius);
-  overflow: hidden;
-  background: var(--es-surface-raised);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  background: var(--es-card-surface);
+  box-shadow: var(--es-shadow);
+  transition: transform var(--es-transition), box-shadow var(--es-transition), border-color var(--es-transition);
 }
 
 /* Hovering anywhere on the card triggers this — :hover on an ancestor
    is active whenever the pointer is over any descendant, and the link
    below fills the entire card, so there's nothing extra to wire up. */
 .events-showcase .event-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  transform: translateY(-3px);
+  box-shadow: var(--es-shadow-lift);
+  border-color: color-mix(in srgb, currentColor 22%, transparent);
+}
+
+/* The lift is decorative motion, not feedback the visitor needs — the
+ * shadow and the title underline already say "this is interactive" — so
+ * it's the first thing to go when reduced motion is requested. */
+@media (prefers-reduced-motion: reduce) {
+  .events-showcase .event-card,
+  .events-showcase .event-card:hover {
+    transform: none;
+    transition: box-shadow var(--es-transition), border-color var(--es-transition);
+  }
 }
 
 /* The whole card is this one link (see EventCard.jsx) — it takes over
@@ -201,28 +407,53 @@
 .events-showcase .event-card__link {
   display: flex;
   flex-direction: column;
+  gap: 0.9rem;
   height: 100%;
   color: inherit;
   text-decoration: none;
 }
 
-/* Inset (negative offset), not the usual outward ring: .event-card has
- * overflow:hidden (to clip the thumbnail to its rounded corners), which
- * would otherwise clip an outward focus outline into invisibility. */
 .events-showcase .event-card__link:focus-visible {
   outline: 2px solid var(--es-accent);
-  outline-offset: -2px;
+  outline-offset: 3px;
+  border-radius: calc(var(--es-radius) - 0.35rem);
 }
 
 .events-showcase .event-card__link:hover .event-card__title {
   text-decoration: underline;
 }
 
+/* Positioning context for the badges, and the clipping box for the
+ * image's hover zoom — the zoom has to be clipped somewhere tighter than
+ * .event-card, or it would also bleed over the body. */
+.events-showcase .event-card__media {
+  position: relative;
+  overflow: hidden;
+  /* Tighter than the card's own radius. Nesting a rounded box inside
+   * another looks wrong when both use the same value — the inner corner
+   * needs to be smaller by roughly the padding between them, or it reads
+   * as bulging out of its container. */
+  border-radius: var(--es-radius-inner);
+}
+
 .events-showcase .event-card__thumb {
   width: 100%;
-  aspect-ratio: 3 / 2;
+  aspect-ratio: var(--es-media-ratio);
   object-fit: cover;
   background: var(--es-border);
+  transition: transform 0.45s cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+.events-showcase .event-card:hover .event-card__thumb {
+  transform: scale(1.04);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .events-showcase .event-card__thumb,
+  .events-showcase .event-card:hover .event-card__thumb {
+    transform: none;
+    transition: none;
+  }
 }
 
 /* .event-card__thumb--placeholder gets its box from also carrying the
@@ -230,15 +461,95 @@
    has a natural size to fall back on, a placeholder <div> doesn't, so
    sharing the same sizing rule is what reserves the same layout space. */
 
+/* The body is a two-column row — date tile, then everything else —
+ * rather than the usual stack. align-items:flex-start keeps the tile
+ * pinned to the top so it stays level with the location line however
+ * many lines the title below it runs to. */
 .events-showcase .event-card__body {
   display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  padding: 1rem;
+  align-items: flex-start;
+  gap: 0.9rem;
+  padding: 0.25rem 0.35rem 0.4rem;
   flex: 1;
 }
 
+/* Fixed width, not intrinsic: the tile has to be the same width on every
+ * card or the vertical rules beside them won't line up down the column,
+ * and "4" and "28" are very different widths. */
+.events-showcase .event-card__date-tile {
+  flex: 0 0 3.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.05;
+  color: var(--es-accent);
+}
+
+.events-showcase .event-card__date-month {
+  font-size: var(--es-date-month-size);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.events-showcase .event-card__date-day {
+  font-size: var(--es-date-day-size);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* The divider is a border on the content column rather than its own
+ * element — one less node, and it stretches to the content's height
+ * automatically, which is the behaviour the design wants (the rule runs
+ * as far as the text does, not as far as the tile does). */
+.events-showcase .event-card__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding-left: 0.9rem;
+  border-left: 1px solid var(--es-border);
+}
+
+/* min-width:0 above is load-bearing: a flex item defaults to
+ * min-width:auto, which refuses to shrink below its longest unbreakable
+ * word. Without it a long title in an event name (a URL, a hashtag)
+ * pushes the card wider than its grid track instead of wrapping. */
+
+.events-showcase .event-card__location,
+.events-showcase .event-card__category {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--es-meta-size);
+  color: var(--es-text-muted);
+  min-width: 0;
+}
+
+.events-showcase .event-card__location {
+  font-weight: 500;
+}
+
+.events-showcase .event-card__category {
+  margin-top: auto;
+  padding-top: 0.5rem;
+  font-weight: 600;
+}
+
+.events-showcase .event-card__icon {
+  width: 0.9375em;
+  height: 0.9375em;
+  flex-shrink: 0;
+}
+
+/* Over the image rather than in the body — see EventCard.jsx. */
 .events-showcase .event-card__badges {
+  position: absolute;
+  top: 0.8rem;
+  left: 0.8rem;
+  right: 0.8rem;
   margin: 0;
   display: flex;
   flex-wrap: wrap;
@@ -246,38 +557,36 @@
   gap: 0.35rem;
 }
 
-.events-showcase .event-card__category {
-  font-size: 0.6875rem;
+/* Only the status pills sit over the image now — the category moved down
+ * to the card footer, next to its tag icon. */
+.events-showcase .event-card__status {
+  font-size: var(--es-eyebrow-size);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--es-accent);
-  background: color-mix(in srgb, var(--es-accent) 12%, transparent);
-  padding: 0.2rem 0.55rem;
+  padding: 0.3rem 0.6rem;
   border-radius: 999px;
+  line-height: 1.2;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
 }
 
 /* Status badges: colour is supplementary, not the only signal — the
  * text itself already says "Cancelled"/"Postponed" (see EventCard.jsx),
  * so these still communicate correctly for anyone who can't perceive
- * the colour difference at all. */
-.events-showcase .event-card__status {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-}
-
+ * the colour difference at all.
+ *
+ * Solid fills with white text, not the translucent tints these used to
+ * carry: like the category pill above, they now sit over a photograph,
+ * and a 12% tint over an arbitrary image is neither legible nor reliably
+ * the colour it claims to be. Both fills clear 4.5:1 against #fff. */
 .events-showcase .event-card__status--cancelled {
-  color: color-mix(in srgb, #dc2626 70%, currentColor);
-  background: color-mix(in srgb, #dc2626 12%, transparent);
+  color: var(--es-danger-contrast);
+  background: var(--es-danger);
 }
 
 .events-showcase .event-card__status--postponed {
-  color: color-mix(in srgb, #b45309 70%, currentColor);
-  background: color-mix(in srgb, #b45309 12%, transparent);
+  color: var(--es-warning-contrast);
+  background: var(--es-warning);
 }
 
 /* Explicit color + font-family, not left to inherit: this is an <h3>,
@@ -289,20 +598,54 @@
  * the theme's own heading colour. */
 .events-showcase .event-card__title {
   margin: 0;
-  font-size: 1.0625rem;
-  line-height: 1.35;
+  font-size: var(--es-title-size);
+  font-weight: var(--es-title-weight);
+  line-height: 1.25;
+  letter-spacing: -0.012em;
   color: var(--es-text);
   font-family: inherit;
 }
 
-.events-showcase .event-card__meta {
+/* Two lines, then an ellipsis. A card grid only works if the cards are
+ * close to the same height, and excerpt length is entirely up to whoever
+ * wrote the event — clamping is what keeps one long excerpt from setting
+ * the row height for every card beside it. */
+/* Clamped to two lines. A card grid only works if the cards are close to
+ * the same height, and excerpt length is entirely up to whoever wrote the
+ * event — clamping is what keeps one long excerpt from setting the row
+ * height for every card beside it.
+ *
+ * max-height is the authoritative constraint, not -webkit-line-clamp.
+ * The clamp alone is no longer dependable: Chrome 153 has dropped legacy
+ * `display: -webkit-box` — it computes to `flow-root` and cannot be
+ * forced back, even from an inline style — after which the clamp
+ * half-applies and settles at ~2.64 lines, showing a sliced-off third
+ * line. (Unprefixed `line-clamp` doesn't rescue it there either.)
+ *
+ * A height ceiling has no such dependency: it cuts at exactly two lines
+ * in every engine. The clamp properties stay because where they *do*
+ * work they add the trailing ellipsis, which the ceiling can't — so
+ * browsers that implement it get the nicer result and the rest get a
+ * clean two-line cut instead of a mangled third.
+ *
+ * The ceiling is derived from the same line-height token that sets the
+ * line-height, so the two can't drift apart. A host theme overriding
+ * line-height on this element would desync them, but nothing in the
+ * target theme does, and reaching for !important to prevent a
+ * hypothetical is worse than the risk.
+ */
+.events-showcase .event-card__excerpt {
   margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem 0.75rem;
-  font-size: 0.8125rem;
+  font-size: var(--es-excerpt-size);
+  line-height: var(--es-excerpt-line-height);
   color: var(--es-text-muted);
+  max-height: calc(var(--es-excerpt-line-height) * var(--es-excerpt-lines) * 1em);
+  display: -webkit-box;
+  -webkit-line-clamp: var(--es-excerpt-lines);
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
+
 
 /* Modal: overlay fade + dialog scale, both cheap enough to run at 60fps
    without a JS animation library. */
@@ -320,7 +663,10 @@
    * this is deliberately overkill so the modal never has to be re-tuned
    * against a particular theme's header stack again. */
   z-index: 999999;
-  animation: es-fade-in 0.15s ease;
+  /* Blur is enhancement only — the overlay colour above already does the
+   * suppressing on browsers that skip this. */
+  backdrop-filter: blur(3px);
+  animation: es-fade-in 0.2s ease;
 }
 
 .events-showcase .event-modal {
@@ -330,10 +676,11 @@
   background: var(--es-modal-surface, #ffffff);
   color: CanvasText;
   border-radius: var(--es-radius);
-  max-width: 640px;
+  max-width: 680px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  box-shadow: var(--es-modal-shadow);
   /* No padding here any more — the image (.event-modal__thumb) needs to
    * sit flush against all four edges of the dialog; everything else that
    * still wants an inset lives in .event-modal__body instead. */
@@ -410,6 +757,7 @@
   max-height: 280px;
   object-fit: cover;
   border-radius: var(--es-radius) var(--es-radius) 0 0;
+  background: var(--es-border);
 }
 
 .events-showcase .event-modal__thumb--placeholder {
@@ -427,8 +775,8 @@
 .events-showcase .event-modal__notice {
   margin: 0 0 1rem;
   padding: 0.65rem 0.85rem;
-  border-radius: 6px;
-  font-size: 0.875rem;
+  border-radius: var(--es-control-radius);
+  font-size: var(--es-excerpt-size);
   font-weight: 600;
   /* Explicit, not inherited — this is a <p>, and a host theme's own
    * paragraph line-height (Divi's global default is a roomy 1.7em) would
@@ -439,21 +787,23 @@
 }
 
 .events-showcase .event-modal__notice--cancelled {
-  color: color-mix(in srgb, #dc2626 70%, currentColor);
-  background: color-mix(in srgb, #dc2626 12%, transparent);
+  color: color-mix(in srgb, var(--es-danger) 70%, currentColor);
+  background: color-mix(in srgb, var(--es-danger) 12%, transparent);
 }
 
 .events-showcase .event-modal__notice--postponed {
-  color: color-mix(in srgb, #b45309 70%, currentColor);
-  background: color-mix(in srgb, #b45309 12%, transparent);
+  color: color-mix(in srgb, var(--es-warning) 70%, currentColor);
+  background: color-mix(in srgb, var(--es-warning) 12%, transparent);
 }
 
 /* Same reasoning as .event-card__title above — an explicit color beats
  * the theme's own heading rules instead of hoping inheritance wins. */
 .events-showcase .event-modal__title {
-  margin: 0 0 1rem;
-  font-size: 1.375rem;
-  line-height: 1.3;
+  margin: 0 0 1.15rem;
+  font-size: var(--es-modal-title-size);
+  font-weight: var(--es-title-weight);
+  line-height: 1.25;
+  letter-spacing: -0.015em;
   color: var(--es-text);
   font-family: inherit;
 }
@@ -471,7 +821,7 @@
 }
 
 .events-showcase .event-modal__meta dt {
-  font-size: 0.6875rem;
+  font-size: var(--es-eyebrow-size);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -482,6 +832,8 @@
 .events-showcase .event-modal__meta dd {
   margin: 0;
   font-size: 0.9375rem;
+  font-weight: 550;
+  line-height: 1.45;
 }
 
 .events-showcase .event-modal__description {
@@ -496,22 +848,76 @@
 .events-showcase .event-modal__links {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
-  margin-top: 1.25rem;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--es-border);
 }
 
+/* Real targets rather than inline text links — these are the dialog's
+ * only actions, and at 0.875rem a bare blue link is a small thing to hit
+ * on a touchscreen. */
 .events-showcase .event-modal__link {
-  color: var(--es-accent);
-  font-size: 0.875rem;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0 1.1rem;
+  border-radius: var(--es-control-radius);
+  font-size: var(--es-excerpt-size);
   font-weight: 600;
+  text-decoration: none;
+  transition: background-color var(--es-transition-fast), border-color var(--es-transition-fast);
 }
 
-/* Loading + empty states. */
+/* First link is the primary action. EventModal.jsx renders the permalink
+ * first when there is one, so this lands on "View full event page" —
+ * and on the external link when that's the only one, which is still the
+ * right emphasis since it's then the only thing to do. */
+.events-showcase .event-modal__link:first-child {
+  background: var(--es-accent);
+  color: var(--es-accent-contrast);
+}
+
+.events-showcase .event-modal__link:first-child:hover {
+  background: color-mix(in srgb, var(--es-accent) 85%, #000);
+}
+
+.events-showcase .event-modal__link:not(:first-child) {
+  border: 1px solid var(--es-border);
+  color: var(--es-accent);
+}
+
+.events-showcase .event-modal__link:not(:first-child):hover {
+  border-color: var(--es-accent);
+  background: color-mix(in srgb, var(--es-accent) 8%, transparent);
+}
+
+.events-showcase .event-modal__link:focus-visible {
+  outline: 2px solid var(--es-accent);
+  outline-offset: 2px;
+}
+
+/* Loading + empty states. The dashed panel gives the empty state a shape
+ * on the page — an unadorned line of grey text in the middle of a lot of
+ * whitespace reads as a page that failed to finish rendering. */
 .events-showcase .events-showcase__loader,
 .events-showcase .events-showcase__no-results {
-  padding: 3rem 1rem;
+  padding: 3.5rem 1.5rem;
   text-align: center;
   color: var(--es-text-muted);
+  border: 1px dashed var(--es-border);
+  border-radius: var(--es-radius);
+}
+
+.events-showcase .events-showcase__no-results p {
+  margin: 0;
+}
+
+.events-showcase .events-showcase__no-results p:first-child {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--es-text);
+  margin-bottom: 0.35rem;
 }
 
 .events-showcase .events-showcase__spinner {
@@ -539,8 +945,8 @@
 
 .events-showcase .events-showcase__error {
   padding: 1rem;
-  border-radius: 6px;
-  background: color-mix(in srgb, #dc2626 10%, transparent);
+  border-radius: var(--es-control-radius);
+  background: color-mix(in srgb, var(--es-danger) 10%, transparent);
   /* Not a flat #dc2626: that hex alone is ~4.8:1 against white but drops
    * to ~3.9:1 against a dark host background (a dark red is, by
    * definition, low-luminance, so it has less contrast against black
@@ -550,7 +956,7 @@
    * --es-text-muted above. Verified ~5.5:1 on a dark host and ~7.5:1 on
    * a light one (see the plugin's PR notes for the exact figures).
    */
-  color: color-mix(in srgb, #dc2626 70%, currentColor);
+  color: color-mix(in srgb, var(--es-danger) 70%, currentColor);
 }
 
 /* No-JS fallback list, rendered by the shortcode's <noscript> block. */
@@ -564,38 +970,49 @@
 }
 
 .events-showcase .es-events__fallback li {
-  padding: 0.75rem;
+  padding: var(--es-card-padding);
   border: 1px solid var(--es-border);
-  border-radius: 6px;
+  border-radius: var(--es-control-radius);
 }
 
 .events-showcase .es-events__fallback time {
   display: block;
-  font-size: 0.8125rem;
+  font-size: var(--es-meta-size);
   color: var(--es-text-muted);
   margin-top: 0.15rem;
 }
 
+/* Separated from the grid by real space plus a rule. Without this the
+ * pager sat directly against the last card — and when the final row is
+ * short, it reads as belonging to whichever card happens to be next to
+ * it rather than to the grid as a whole. */
 .events-showcase .events-pagination {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 1rem;
+  margin-top: 3rem;
+  padding-top: 1.75rem;
+  border-top: 1px solid var(--es-border);
 }
 
 .events-showcase .events-pagination__button {
-  padding: 0.5rem 1rem;
+  min-height: 2.5rem;
+  padding: 0 1.25rem;
   border: 1px solid var(--es-border);
-  border-radius: 6px;
-  background: var(--es-surface-raised);
-  color: var(--es-text);
-  font-size: 0.875rem;
+  border-radius: var(--es-control-radius);
+  background: var(--es-control-surface);
+  color: CanvasText;
+  font-size: var(--es-excerpt-size);
   font-weight: 600;
   cursor: pointer;
+  transition: border-color var(--es-transition-fast), background-color var(--es-transition-fast);
 }
 
 .events-showcase .events-pagination__button:hover:not(:disabled) {
-  background: var(--es-border);
+  border-color: var(--es-accent);
+  color: var(--es-accent);
+  background: color-mix(in srgb, var(--es-accent) 8%, Canvas);
 }
 
 .events-showcase .events-pagination__button:focus-visible {
@@ -609,7 +1026,7 @@
 }
 
 .events-showcase .events-pagination__status {
-  font-size: 0.875rem;
+  font-size: var(--es-excerpt-size);
   color: var(--es-text-muted);
 }
 
@@ -625,6 +1042,27 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* Refetch state: the results stay mounted and readable while a new page
+ * or filter loads (App.jsx only shows the spinner when there is nothing
+ * on screen yet), dimmed just enough to read as "working" without the
+ * grid collapsing and re-expanding on every keystroke. pointer-events is
+ * dropped so a click can't land on a card that is about to be replaced
+ * by a different event. */
+.events-showcase .events-showcase__results {
+  transition: opacity var(--es-transition-fast);
+}
+
+.events-showcase .events-showcase__results[aria-busy='true'] {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .events-showcase .events-showcase__results {
+    transition: none;
+  }
 }
 
 /* -------------------------------------------------------------------
@@ -663,10 +1101,17 @@
   flex-direction: row;
 }
 
-.events-showcase--list .event-card__thumb {
-  width: 200px;
-  aspect-ratio: 4 / 3;
+/* Sizing moved from the image to its wrapper: the wrapper is now the
+ * flex child of .event-card__link, so it is what has to hold the column
+ * width — the image inside just fills it. */
+.events-showcase--list .event-card__media {
+  width: 260px;
   flex-shrink: 0;
+}
+
+.events-showcase--list .event-card__thumb {
+  height: 100%;
+  aspect-ratio: auto;
 }
 
 .events-showcase--list .event-card__body {
@@ -681,9 +1126,13 @@
     flex-direction: column;
   }
 
-  .events-showcase--list .event-card__thumb {
+  .events-showcase--list .event-card__media {
     width: 100%;
-    aspect-ratio: 3 / 2;
+  }
+
+  .events-showcase--list .event-card__thumb {
+    height: auto;
+    aspect-ratio: var(--es-media-ratio);
   }
 }
 
@@ -692,11 +1141,25 @@
   gap: 0.5rem;
 }
 
-/* Also hides .event-card__thumb--placeholder — the placeholder <div>
- * always carries the base .event-card__thumb class too, so one
- * selector covers both the real <img> and the no-image placeholder. */
-.events-showcase--compact .event-card__thumb {
+/* Compact drops the photo. A media block with nothing else in it goes
+ * entirely, rather than collapsing to an empty rounded box above every
+ * card — but one carrying a cancelled/postponed pill has to stay, or
+ * compact would be the one layout that silently withholds the single
+ * most important thing about an event. Those return to normal flow. */
+.events-showcase--compact .event-card__media:not(.event-card__media--status) {
   display: none;
+}
+
+.events-showcase--compact .event-card__media--status {
+  position: static;
+}
+
+.events-showcase--compact .event-card__media--status .event-card__thumb {
+  display: none;
+}
+
+.events-showcase--compact .event-card__badges {
+  position: static;
 }
 
 .events-showcase--compact .event-card__body {

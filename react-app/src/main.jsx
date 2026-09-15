@@ -37,6 +37,17 @@ function mountAll() {
       // build skew between an old shortcode call and a new bundle,
       // vanishingly unlikely but cheap to guard), defaults open to true.
       filters: el.dataset.filters !== 'false',
+      // Theming escape hatch from the shortcode's `class` attribute.
+      // Already sanitised server-side with sanitize_html_class() per
+      // token (see Shortcode::parse_atts()), so it goes straight onto
+      // className — but it is still only ever a class list, never
+      // markup, so there is nothing here React would need to escape.
+      className: el.dataset.class || '',
+      // The site's timezone, so dates render in the timezone the event
+      // happens in rather than the visitor's — see normalizeEvent.js.
+      // Empty string means "not supplied", which that module treats as
+      // "fall back to the visitor's own timezone".
+      timeZone: el.dataset.timezone || '',
     };
 
     createRoot(el).render(

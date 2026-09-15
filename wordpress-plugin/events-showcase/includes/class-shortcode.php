@@ -108,9 +108,14 @@ class Shortcode {
 		$wrapper_id = 'es-events-' . $instance;
 		$payload_id = 'es-events-data-' . $instance;
 
+		// Printed on the outer .es-events element as well as handed to
+		// React for the inner wrapper, so a theme's CSS can hook either
+		// the server-rendered shell or the mounted app.
+		$extra_class = '' !== $args['class'] ? ' ' . $args['class'] : '';
+
 		ob_start();
 		?>
-		<div class="es-events" id="<?php echo esc_attr( $wrapper_id ); ?>">
+		<div class="es-events<?php echo esc_attr( $extra_class ); ?>" id="<?php echo esc_attr( $wrapper_id ); ?>">
 			<script type="application/json" id="<?php echo esc_attr( $payload_id ); ?>">
 				<?php
 				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- payload_json() already ran this through wp_json_encode(); it is not raw.
@@ -129,6 +134,25 @@ class Shortcode {
 				data-columns="<?php echo esc_attr( $args['columns'] ); ?>"
 				<?php // Always printed (not only when false) so main.jsx never has to guess what an absent attribute means. ?>
 				data-filters="<?php echo esc_attr( $args['filters'] ? 'true' : 'false' ); ?>"
+				data-class="<?php echo esc_attr( $args['class'] ); ?>"
+				<?php
+				// The site's timezone, so the React app can format every
+				// event in the timezone the event actually happens in
+				// rather than in whatever timezone the visitor is sitting
+				// in. Without this, an 18:30 meetup in Colombo renders as
+				// "00:00 the next day" to a visitor at UTC+5:30 and as
+				// something different again to everyone else — the listing
+				// tells each visitor a different, wrong time for the same
+				// physical event.
+				//
+				// wp_timezone_string() returns an IANA name ("Asia/Colombo")
+				// when Settings → General has a city selected, and a bare
+				// offset ("+05:30") when it's set to a manual UTC offset.
+				// Intl accepts both, but normalizeEvent.js validates it
+				// anyway and falls back to the visitor's timezone if the
+				// engine rejects it.
+				?>
+				data-timezone="<?php echo esc_attr( \wp_timezone_string() ); ?>"
 				<?php // Not required by the current routes (permission_callback is '__return_true' on both) — included so an authenticated endpoint added later doesn't need a markup change. ?>
 				data-nonce="<?php echo esc_attr( \wp_create_nonce( 'wp_rest' ) ); ?>"
 			></div>
@@ -153,7 +177,7 @@ class Shortcode {
 	 * default if nothing's been saved).
 	 *
 	 * @param array $atts Raw shortcode attributes.
-	 * @return array{category: string, per_page: int, search: string, show: string, layout: string, columns: string, filters: bool, related: bool}
+	 * @return array{category: string, per_page: int, search: string, show: string, layout: string, columns: string, filters: bool, related: bool, class: string}
 	 */
 	private function parse_atts( array $atts ): array {
 		// Read straight off the raw, caller-supplied $atts — before
@@ -180,6 +204,14 @@ class Shortcode {
 				// filters="true" still wins.
 				'filters'  => $related_requested ? 'false' : 'true',
 				'related'  => 'false',
+				// Escape hatch for theming. The stylesheet's own selectors
+				// are deliberately specific so they beat a host theme's
+				// rules, which means a themer can't win with a bare class;
+				// most restyling should go through the --es-* custom
+				// properties instead (see events.css). This is for the
+				// cases those don't cover, and for scoping overrides to one
+				// instance when the same page has several.
+				'class'    => '',
 			),
 			$atts,
 			'events_showcase'
@@ -209,6 +241,15 @@ class Shortcode {
 			$columns = '3';
 		}
 
+		// Space-separated list, each token run through sanitize_html_class()
+		// individually — the function strips whitespace, so handing it the
+		// whole string would silently weld "a b" into "ab". Empty results
+		// (a token that was entirely invalid characters) are dropped rather
+		// than emitted as a stray space.
+		$classes = \array_filter(
+			\array_map( 'sanitize_html_class', \preg_split( '/\s+/', (string) $atts['class'], -1, PREG_SPLIT_NO_EMPTY ) ?: array() )
+		);
+
 		return array(
 			'category' => $category,
 			'per_page' => max( 1, min( 48, (int) $atts['per-page'] ) ),
@@ -222,6 +263,7 @@ class Shortcode {
 			// spell "off" a few different ways.
 			'filters'  => \filter_var( $atts['filters'], FILTER_VALIDATE_BOOLEAN ),
 			'related'  => \filter_var( $atts['related'], FILTER_VALIDATE_BOOLEAN ),
+			'class'    => \implode( ' ', $classes ),
 		);
 	}
 

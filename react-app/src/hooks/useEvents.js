@@ -26,8 +26,12 @@ import { normalizeEvent } from '../utils/normalizeEvent.js';
  *   this instead — see main.jsx.
  */
 export function useEvents(config, initialData) {
+  // Arrow function, not a bare `.map(normalizeEvent)`: map passes
+  // (item, index, array), so the index would arrive as normalizeEvent's
+  // second parameter — which is now the timezone. That silently produced
+  // a wrong timezone for every event after the first.
   const [events, setEvents] = useState(() =>
-    (initialData?.events || []).map(normalizeEvent),
+    (initialData?.events || []).map((event) => normalizeEvent(event, config.timeZone)),
   );
   const [total, setTotal] = useState(initialData?.total ?? 0);
   const [pages, setPages] = useState(initialData?.pages ?? 0);
@@ -46,12 +50,6 @@ export function useEvents(config, initialData) {
   // fetch effect below should be a no-op rather than an immediate refetch.
   const skipNextFetch = useRef(Boolean(initialData));
 
-  // Tracks whether the *next* completed fetch is the first time this
-  // instance has ever shown results (SSR hydration counts as "already
-  // shown" even though it skips its own fetch). Drives resultsMessage
-  // below, which must announce on a filter/search/page change but stay
-  // silent on the initial load.
-  const isFirstResult = useRef(true);
   const [resultsMessage, setResultsMessage] = useState('');
 
   // Debounced so typing in the search box doesn't hit the REST API on
@@ -100,21 +98,12 @@ export function useEvents(config, initialData) {
   useEffect(() => {
     if (skipNextFetch.current) {
       skipNextFetch.current = false;
-      // The SSR payload already put results on screen, so the *next*
-      // fetch this instance runs is a real change, not the first load.
-      isFirstResult.current = false;
       return;
     }
 
     let cancelled = false;
     setLoading(true);
     setError(null);
-
-    // Captured before the request resolves, not read fresh in .then() —
-    // by the time the response comes back this ref may already have been
-    // flipped by a later effect run (e.g. a second fast filter change).
-    const wasFirstResult = isFirstResult.current;
-    isFirstResult.current = false;
 
     fetchEvents(config.restUrl, {
       category: filters.category,
@@ -125,14 +114,9 @@ export function useEvents(config, initialData) {
     })
       .then((result) => {
         if (cancelled) return;
-        const count = result.total || 0;
-        setEvents((result.events || []).map(normalizeEvent));
-        setTotal(count);
+        setEvents((result.events || []).map((event) => normalizeEvent(event, config.timeZone)));
+        setTotal(result.total || 0);
         setPages(result.pages || 0);
-
-        if (!wasFirstResult) {
-          setResultsMessage(count === 1 ? '1 event matches' : `${count} events match`);
-        }
       })
       .catch((err) => {
         if (cancelled) return;
@@ -147,15 +131,54 @@ export function useEvents(config, initialData) {
     };
   }, [config.restUrl, config.perPage, config.show, filters.category, debouncedSearch, page]);
 
-  const locations = useMemo(
-    () => [...new Set(events.map((e) => e.location).filter(Boolean))].sort(),
-    [events],
-  );
+  const locations = useMemo(() => {
+    const fromEvents = events.map((e) => e.location).filter(Boolean);
+
+    // The selected location is kept in the list even when no event on the
+    // current page has it. Options are derived from the loaded page, so
+    // paging to a page with no matches would otherwise drop the selected
+    // value out of the <select> entirely — leaving a control whose value
+    // matches no option, which renders blank while still filtering. The
+    // visitor could see the effect of a filter with no way to read or
+    // clear it.
+    if (filters.location) fromEvents.push(filters.location);
+
+    return [...new Set(fromEvents)].sort();
+  }, [events, filters.location]);
 
   const filteredEvents = useMemo(
     () => events.filter((e) => !filters.location || e.location === filters.location),
     [events, filters.location],
   );
+
+  // Announces the result count once the visitor has changed something —
+  // silent on the initial render (nothing has changed yet) and silent
+  // mid-fetch, where the count still describes the previous results.
+  //
+  // Derived from what is actually on screen rather than set inside the
+  // fetch callback, where this used to live. The location filter runs
+  // client-side and triggers no fetch at all, so a fetch-time
+  // announcement both missed location changes entirely and read out the
+  // server's unfiltered `total` next to a grid that filter had already
+  // narrowed.
+  const hasAnnounced = useRef(false);
+  useEffect(() => {
+    if (loading) return;
+
+    if (!hasAnnounced.current) {
+      hasAnnounced.current = true;
+      return;
+    }
+
+    // `total` counts every page and is the right figure while only the
+    // server-side filters (category, search) are applied. Once the
+    // client-side location filter narrows the loaded page, it no longer
+    // describes anything the visitor can actually reach, so the visible
+    // count becomes the only honest number.
+    const count = filters.location ? filteredEvents.length : total;
+
+    setResultsMessage(count === 1 ? '1 event matches' : `${count} events match`);
+  }, [filteredEvents, filters.location, total, loading]);
 
   return {
     loading,

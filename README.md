@@ -93,6 +93,36 @@ docs/                              Supporting notes / screenshots for submission
    doesn't take a location param — see the comment at the top of
    `useEvents.js` for the reasoning.
 
+### Timezones
+
+Dates render in **the event's timezone — the WordPress site's — not the
+visitor's.** The shortcode passes `wp_timezone_string()` down as
+`data-timezone` and `normalizeEvent.js` hands it to every `Intl`
+formatter.
+
+This matters because these are physical events. A bare
+`toLocaleString()` formats in whoever's reading's timezone, so an 18:30
+meetup in Colombo rendered as "00:00 the next day" to a visitor at
+UTC+5:30 and as something different again to everyone else — the listing
+told each visitor a different, wrong time for the same event. A two-day
+event could even show as spanning three.
+
+Only the timezone is pinned; the **locale stays the visitor's**, so month
+names, word order and 12-vs-24-hour clock still follow their own
+conventions. It's the instant being described that's held fixed, not the
+language describing it.
+
+Two consequences worth knowing:
+
+- The displayed time always equals what the editor typed, and stays
+  correct even if Settings → General's timezone is changed later — the
+  stored wall-clock value and the formatting timezone move together.
+- `isSameDay()` compares formatted day keys rather than
+  `getDate()`/`getMonth()`, which read the visitor's timezone. An event
+  running 23:00–01:00 is one calendar day in one timezone and two in
+  another, and that decides whether the modal shows a time range or a
+  date range.
+
 > **Behaviour note:** the default listing (`show=upcoming`) now hides
 > past events — previously every event ever created was returned,
 > oldest first. Pass `show="all"` (shortcode) or `?show=all` (REST) for
@@ -118,6 +148,97 @@ fallback — see [Settings](#settings) for the actual precedence rule.
 | `columns`  | `3`                | `2`, `3`, or `4` — the grid's column count at the widest breakpoint only. Only meaningful when `layout="grid"`. |
 | `filters`  | `true`             | Whether the search box, category/location dropdowns, and pagination render at all — one flag for all three, since they're really one "is this a browse interface or a glance?" decision. `false`/`0`/`no` all count as off. Defaults to `false` instead when `related="true"` (see below), but an explicit `filters="true"` still wins. Not a site-wide Settings option on purpose — the same site legitimately wants filters on its events page and off on a homepage teaser. |
 | `related`  | `false`            | Shows events related to the event currently being viewed, instead of a plain listing. See [Related events](#related-events) below. |
+| `class`    | *(none)*           | Extra class(es) on the wrapper, for scoping your own CSS — see [Theming](#theming). Sanitised per token with `sanitize_html_class()`. |
+
+## Theming
+
+The component is built to be restyled to match a host site without
+fighting it.
+
+**The problem this solves.** Every selector in `events.css` is written
+`.events-showcase .event-card__title` rather than as a bare class. That
+extra specificity is deliberate — it's what lets the component survive
+inside an unknown theme (Divi ships a global `h1..h6 { color: #333 }`,
+and a bare `.event-card__title` loses to it; that is exactly how the
+"invisible titles" bug happened). But the same specificity that beats the
+theme also beats a developer writing the obvious override.
+
+Rather than weaken the defence, **every value worth changing is exposed
+as a CSS custom property**, so a restyle never has to touch a selector:
+
+```css
+.events-showcase {
+  --es-accent: #c026d3;
+  --es-radius: 4px;
+  --es-title-size: 1.5rem;
+  --es-card-surface: #0f172a;
+}
+```
+
+Properties are declared on `.events-showcase`, not `:root`, so two
+instances on the same page can be themed independently.
+
+### Tokens
+
+| Token | Default | Controls |
+|---|---|---|
+| `--es-gap` | `1.5rem` | Gap between grid cards |
+| `--es-stack-gap` | `1.5rem` | Gap between controls, grid, pagination |
+| `--es-radius` | `14px` | Card and modal corner radius |
+| `--es-radius-inner` | `calc(--es-radius - 0.4rem)` | Inset thumbnail corners; derived, so overriding `--es-radius` keeps both in proportion |
+| `--es-control-radius` | `8px` | Inputs, selects, buttons |
+| `--es-card-padding` | `0.75rem` | Inset around the card's photo |
+| `--es-font-size` / `--es-line-height` | `1rem` / `1.5` | Component text base |
+| `--es-title-size` / `--es-title-weight` | `1.125rem` / `700` | Card title |
+| `--es-modal-title-size` | `1.625rem` | Modal heading |
+| `--es-excerpt-size` | `0.875rem` | Card excerpt, modal body |
+| `--es-excerpt-line-height` / `--es-excerpt-lines` | `1.55` / `2` | Card excerpt leading, and how many lines before it's clipped. The height ceiling is derived from both, so they're declared together to stay in sync |
+| `--es-meta-size` | `0.8125rem` | Location, category, pager status |
+| `--es-eyebrow-size` | `0.6875rem` | Badges, control labels, modal `<dt>`s |
+| `--es-date-month-size` / `--es-date-day-size` | `0.75rem` / `1.75rem` | The card's calendar tile |
+| `--es-text` / `--es-text-muted` | `currentColor` / 65% of it | Text. Inherits the theme by default |
+| `--es-border` | 15% of `currentColor` | All hairlines |
+| `--es-accent` / `--es-accent-contrast` | `#2563eb` / `#fff` | Date tile, links, focus rings, primary button |
+| `--es-danger` / `--es-warning` (+ `-contrast`) | `#b91c1c` / `#a16207` | Cancelled and postponed styling, error banner |
+| `--es-surface` / `--es-surface-raised` | `transparent` / 4% tint | Ambient surfaces |
+| `--es-card-surface` | 3% tint over `Canvas` | The card panel |
+| `--es-control-surface` | 6% tint over `Canvas` | Inputs and selects |
+| `--es-overlay` / `--es-modal-surface` | `rgba(15,23,42,.72)` / `Canvas` | Modal backdrop and dialog |
+| `--es-shadow` / `--es-shadow-lift` / `--es-modal-shadow` | see `events.css` | Elevation at rest, on hover, and for the dialog |
+| `--es-media-ratio` | `16 / 10` | Card thumbnail aspect ratio |
+| `--es-control-height` | `2.75rem` | Shared height for search + selects |
+| `--es-transition` / `--es-transition-fast` | `0.2s ease` / `0.15s ease` | Set either to `0s` to drop transitions. `prefers-reduced-motion` is honoured separately — this is for design choices, not accessibility |
+
+Not every literal is a token, deliberately. An icon's `0.3rem` gap or a
+badge's inner padding is an implementation detail, not a design decision
+anyone wants to override — tokenising those would make the surface look
+more configurable than it really is, and every token is a promise to keep
+supporting.
+
+### The `class` escape hatch
+
+For anything the tokens don't cover, `class` puts your own hook on the
+wrapper so overrides can be scoped at a specificity you control — and
+scoped to one instance when a page has several:
+
+```
+[events_showcase class="homepage-events"]
+```
+
+```css
+.homepage-events .event-card__title { text-transform: uppercase; }
+```
+
+Each token is run through `sanitize_html_class()` individually (the
+function strips whitespace, so a multi-class string has to be split
+first). The class lands on both the server-rendered `.es-events` shell
+and React's `.events-showcase` wrapper.
+
+### Class names are stable
+
+The BEM class names in `events.css` — `.event-card__title`,
+`.events-grid`, `.event-modal`, and the rest — are treated as public API
+and won't be renamed without a major version bump.
 
 ## Related events
 
@@ -236,6 +357,49 @@ npm run build     # production build → wordpress-plugin/events-showcase/assets
    Permalinks) — the CPT's rewrite rules need a non-plain structure to
    produce `/event/your-event-slug/` URLs for the no-JS fallback links.
 
+### React comes from WordPress, not from the bundle
+
+WordPress registers `react` and `react-dom` as script handles and has
+shipped React 18 since 6.2, so there is no reason to ship a second copy.
+`class-assets.php` declares both as dependencies and
+`react-app/vite.config.js` resolves React to `window.React` /
+`window.ReactDOM` at build time:
+
+| | bundled React | using WordPress's |
+|---|---|---|
+| raw | 155.71 kB | **14.13 kB** |
+| gzipped | 49.85 kB | **4.93 kB** |
+
+Roughly a 90% cut, and it's the reason the plugin header declares
+`Requires at least: 6.2` — `createRoot` needs React 18, and 6.2 is the
+release that shipped it.
+
+The mechanism is worth knowing because the obvious approach doesn't work:
+`rollupOptions.external` plus `output.globals` only applies to iife/umd
+output, and this build stays ES so the plugin can enqueue it with
+`type="module"`. In an ES bundle an external becomes a bare
+`import ... from "react"`, which a browser can't resolve without an import
+map — and WordPress doesn't publish one for these handles. So rather than
+marking them external, the build resolves them to small virtual modules
+that re-export the globals. The output stays a real ES module and no React
+ships inside it.
+
+`@wordpress/scripts` gets this for free, since webpack's externals work
+with the classic-script output WordPress's script system expects. Under
+Vite it has to be done by hand — the trade-off that comes with the
+assignment's choice of bundler.
+
+Two consequences worth remembering:
+
+- **`react` and `react-dom` must stay classic scripts.** They are UMD
+  builds that assign to `window`; evaluated as modules they'd get their
+  own scope and set nothing. `Assets::filter_script_tag()` only adds
+  `type="module"` to this plugin's own handle, which is what keeps that
+  true.
+- **`npm run dev` is unaffected.** The Vite plugin is `apply: 'build'`,
+  so the dev server keeps resolving React from `node_modules`, where
+  there is no WordPress and no globals.
+
 ### Build output & asset scoping
 
 `class-assets.php` only enqueues the bundle on pages whose content
@@ -304,5 +468,37 @@ worse off than one who knows to check manually.
 
 ## Deployment
 
-The working demo is hosted on a Cloudways WordPress dev server. *(Link to
-be added once deployed.)*
+**Live demo:** <https://wordpress-1404196-5221843.cloudwaysapps.com/events/>
+
+Hosted on a Cloudways WordPress dev server. The `/events/` page is an
+ordinary WordPress page whose content is a single `[events_showcase]`
+shortcode — nothing about the page itself is special, which is the point.
+
+To ship an update: run `npm run build` in `react-app/`, then upload the
+refreshed `wordpress-plugin/events-showcase/` folder. No PHP edit is
+needed for a new bundle — `class-assets.php` reads the new hashed
+filenames out of `assets/build/.vite/manifest.json` on the next request.
+
+### Faster loop: the local SFTP working copy
+
+Rebuilding a zip and re-uploading it through wp-admin for every change
+gets old quickly. `scripts/sync-to-dev.sh` builds the app and mirrors the
+plugin straight into the local folder the VS Code SFTP extension watches:
+
+```bash
+./scripts/sync-to-dev.sh
+# or, if the working copy lives elsewhere:
+EVENTS_SHOWCASE_DEV_PATH=/path/to/plugins/events-showcase ./scripts/sync-to-dev.sh
+```
+
+**The script only writes locally.** The SFTP extension uploads on VS
+Code's *save* event, and an external write like rsync doesn't trigger
+one — so after running it, use **SFTP: Sync Local -> Remote** on the
+plugin folder (or right-click → Upload Folder) to push it.
+
+One wrinkle worth knowing: the script's `--delete` prunes superseded
+content-hashed bundles from the local mirror, but the extension only ever
+uploads, so old bundles keep accumulating on the server. They're inert —
+`class-assets.php` enqueues whatever `manifest.json` names, never
+whatever happens to be sitting in `assets/` — but clear them out
+occasionally if the directory gets untidy.
