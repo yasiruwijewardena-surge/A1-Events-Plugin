@@ -314,3 +314,27 @@ To ship an update: run `npm run build` in `react-app/`, then upload the
 refreshed `wordpress-plugin/events-showcase/` folder. No PHP edit is
 needed for a new bundle — `class-assets.php` reads the new hashed
 filenames out of `assets/build/.vite/manifest.json` on the next request.
+
+### Faster loop: the local SFTP working copy
+
+Rebuilding a zip and re-uploading it through wp-admin for every change
+gets old quickly. `scripts/sync-to-dev.sh` builds the app and mirrors the
+plugin straight into the local folder the VS Code SFTP extension watches:
+
+```bash
+./scripts/sync-to-dev.sh
+# or, if the working copy lives elsewhere:
+EVENTS_SHOWCASE_DEV_PATH=/path/to/plugins/events-showcase ./scripts/sync-to-dev.sh
+```
+
+**The script only writes locally.** The SFTP extension uploads on VS
+Code's *save* event, and an external write like rsync doesn't trigger
+one — so after running it, use **SFTP: Sync Local -> Remote** on the
+plugin folder (or right-click → Upload Folder) to push it.
+
+One wrinkle worth knowing: the script's `--delete` prunes superseded
+content-hashed bundles from the local mirror, but the extension only ever
+uploads, so old bundles keep accumulating on the server. They're inert —
+`class-assets.php` enqueues whatever `manifest.json` names, never
+whatever happens to be sitting in `assets/` — but clear them out
+occasionally if the directory gets untidy.
