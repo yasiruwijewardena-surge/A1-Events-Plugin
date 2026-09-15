@@ -121,10 +121,24 @@ class Assets {
 		// filenames are already content-hashed, so a ?ver= would be
 		// redundant and would defeat the immutable-asset caching the
 		// hashing exists to enable.
+		//
+		// The 'react'/'react-dom' dependencies are the point of the build's
+		// externalisation: WordPress registers both handles and has shipped
+		// React 18 since 6.2, so the bundle resolves React from
+		// window.React/window.ReactDOM rather than carrying its own copy
+		// (see react-app/vite.config.js). That took the bundle from ~155 kB
+		// to ~14 kB. Declaring them here is what guarantees they are
+		// printed — and printed first — since WP_Scripts resolves the whole
+		// dependency graph before emitting anything.
+		//
+		// They stay classic scripts: filter_script_tag() below only adds
+		// type="module" to this plugin's own handle, which matters, because
+		// React's UMD builds assign to window and would export nothing at
+		// all if loaded as modules.
 		\wp_enqueue_script(
 			self::HANDLE,
 			$build_url . $entry['file'],
-			array(),
+			array( 'react', 'react-dom' ),
 			null,
 			true
 		);
@@ -241,9 +255,15 @@ class Assets {
 	 * WordPress prints a plain `<script src>`, which throws on the
 	 * bundle's first `import` statement. wp_enqueue_script_module()
 	 * (WP 6.5+) avoids needing this filter at all, but this plugin
-	 * declares a 6.0 floor per its header — raising that floor to 6.5
+	 * declares a 6.2 floor per its header — raising that floor to 6.5
 	 * would be a reasonable trade to make deliberately, but isn't this
 	 * class's call to make on its own.
+	 *
+	 * Guarded on this plugin's own handle, which is load-bearing now that
+	 * 'react' and 'react-dom' are dependencies: those are UMD builds that
+	 * assign to window, and a UMD script evaluated as a module gets its
+	 * own scope, so window.React would never be set and the bundle would
+	 * fail on the first hook call.
 	 *
 	 * @param string $tag    The `<script>` tag markup.
 	 * @param string $handle The script's registered handle.

@@ -326,6 +326,49 @@ npm run build     # production build → wordpress-plugin/events-showcase/assets
    Permalinks) — the CPT's rewrite rules need a non-plain structure to
    produce `/event/your-event-slug/` URLs for the no-JS fallback links.
 
+### React comes from WordPress, not from the bundle
+
+WordPress registers `react` and `react-dom` as script handles and has
+shipped React 18 since 6.2, so there is no reason to ship a second copy.
+`class-assets.php` declares both as dependencies and
+`react-app/vite.config.js` resolves React to `window.React` /
+`window.ReactDOM` at build time:
+
+| | bundled React | using WordPress's |
+|---|---|---|
+| raw | 155.71 kB | **14.13 kB** |
+| gzipped | 49.85 kB | **4.93 kB** |
+
+Roughly a 90% cut, and it's the reason the plugin header declares
+`Requires at least: 6.2` — `createRoot` needs React 18, and 6.2 is the
+release that shipped it.
+
+The mechanism is worth knowing because the obvious approach doesn't work:
+`rollupOptions.external` plus `output.globals` only applies to iife/umd
+output, and this build stays ES so the plugin can enqueue it with
+`type="module"`. In an ES bundle an external becomes a bare
+`import ... from "react"`, which a browser can't resolve without an import
+map — and WordPress doesn't publish one for these handles. So rather than
+marking them external, the build resolves them to small virtual modules
+that re-export the globals. The output stays a real ES module and no React
+ships inside it.
+
+`@wordpress/scripts` gets this for free, since webpack's externals work
+with the classic-script output WordPress's script system expects. Under
+Vite it has to be done by hand — the trade-off that comes with the
+assignment's choice of bundler.
+
+Two consequences worth remembering:
+
+- **`react` and `react-dom` must stay classic scripts.** They are UMD
+  builds that assign to `window`; evaluated as modules they'd get their
+  own scope and set nothing. `Assets::filter_script_tag()` only adds
+  `type="module"` to this plugin's own handle, which is what keeps that
+  true.
+- **`npm run dev` is unaffected.** The Vite plugin is `apply: 'build'`,
+  so the dev server keeps resolving React from `node_modules`, where
+  there is no WordPress and no globals.
+
 ### Build output & asset scoping
 
 `class-assets.php` only enqueues the bundle on pages whose content
