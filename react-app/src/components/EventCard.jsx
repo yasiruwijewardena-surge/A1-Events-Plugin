@@ -29,26 +29,31 @@ export default function EventCard({ event, onSelect }) {
         aria-haspopup="dialog"
         onClick={handleClick}
       >
-        {event.thumbnail ? (
-          <img
-            className="event-card__thumb"
-            src={event.thumbnail}
-            // alt falls back to "" (decorative) when the editor didn't
-            // set one — the title is already rendered as visible text
-            // right below, so an empty alt avoids a screen reader
-            // announcing the same thing twice.
-            alt={event.thumbnailAlt || ''}
-            width={event.thumbnailWidth || undefined}
-            height={event.thumbnailHeight || undefined}
-            loading="lazy"
-          />
-        ) : (
-          // A placeholder box, not an <img> with no src — a bare <img
-          // src=""> renders as a broken-image icon, which looks like a
-          // loading failure rather than "no image was set."
-          <div className="event-card__thumb event-card__thumb--placeholder" aria-hidden="true" />
-        )}
-        <div className="event-card__body">
+        {/* Wrapper purely so the badges have a positioning context: the
+            pills sit over the image rather than taking a line of their own
+            at the top of the body, which leaves the body free to lead with
+            the title. The compact layout — which hides the image — puts
+            them back into normal flow (see events.css). */}
+        <div className="event-card__media">
+          {event.thumbnail ? (
+            <img
+              className="event-card__thumb"
+              src={event.thumbnail}
+              // alt falls back to "" (decorative) when the editor didn't
+              // set one — the title is already rendered as visible text
+              // right below, so an empty alt avoids a screen reader
+              // announcing the same thing twice.
+              alt={event.thumbnailAlt || ''}
+              width={event.thumbnailWidth || undefined}
+              height={event.thumbnailHeight || undefined}
+              loading="lazy"
+            />
+          ) : (
+            // A placeholder box, not an <img> with no src — a bare <img
+            // src=""> renders as a broken-image icon, which looks like a
+            // loading failure rather than "no image was set."
+            <div className="event-card__thumb event-card__thumb--placeholder" aria-hidden="true" />
+          )}
           <p className="event-card__badges">
             <span className="event-card__category">{event.category}</span>
             {/* Cancelled/postponed events still appear here — see
@@ -63,13 +68,22 @@ export default function EventCard({ event, onSelect }) {
               <span className="event-card__status event-card__status--postponed">Postponed</span>
             )}
           </p>
+        </div>
+        <div className="event-card__body">
           <h3 className="event-card__title">{event.title}</h3>
+          {/* Plain text by the time it reaches here — the repository runs
+              the excerpt through wp_strip_all_tags(), so this is a text
+              node, not markup. Clamped to two lines in CSS. */}
+          {event.excerpt && <p className="event-card__excerpt">{event.excerpt}</p>}
           <p className="event-card__meta">
             <span className="event-card__date">
               {event.dateLabel}
               {event.allDay ? ' · All day' : ''}
             </span>
-            <span className="event-card__location">{event.location}</span>
+            {/* Rendered only when there's a value: the separator between
+                date and location is a CSS ::before on this element, so an
+                empty span would leave a dangling dot. */}
+            {event.location && <span className="event-card__location">{event.location}</span>}
           </p>
         </div>
       </a>
