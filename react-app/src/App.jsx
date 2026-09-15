@@ -42,7 +42,20 @@ export default function App({ config, initialData }) {
   // Both modifiers always applied, regardless of layout — events.css
   // scopes the columns override to grid specifically (it's a no-op
   // class otherwise), so there's no need to conditionally omit it here.
-  const wrapperClassName = `events-showcase events-showcase--${config.layout} events-showcase--cols-${config.columns}`;
+  //
+  // config.className comes last so a theme's own class sits at the end of
+  // the attribute. That has no effect on the cascade — source order in
+  // the stylesheet decides, not order in the class attribute — but it
+  // keeps the component's own classes readable as a group when someone
+  // is reading the DOM in devtools.
+  const wrapperClassName = [
+    'events-showcase',
+    `events-showcase--${config.layout}`,
+    `events-showcase--cols-${config.columns}`,
+    config.className,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   // Pagination is suppressed alongside the filter controls, not behind a
   // separate attribute — a teaser/related strip showing a handful of

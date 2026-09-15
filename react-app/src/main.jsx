@@ -37,6 +37,12 @@ function mountAll() {
       // build skew between an old shortcode call and a new bundle,
       // vanishingly unlikely but cheap to guard), defaults open to true.
       filters: el.dataset.filters !== 'false',
+      // Theming escape hatch from the shortcode's `class` attribute.
+      // Already sanitised server-side with sanitize_html_class() per
+      // token (see Shortcode::parse_atts()), so it goes straight onto
+      // className — but it is still only ever a class list, never
+      // markup, so there is nothing here React would need to escape.
+      className: el.dataset.class || '',
     };
 
     createRoot(el).render(
