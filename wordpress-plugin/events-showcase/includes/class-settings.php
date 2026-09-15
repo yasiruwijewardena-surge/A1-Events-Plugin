@@ -690,10 +690,27 @@ class Settings {
 	private function print_page_styles(): void {
 		?>
 		<style>
+			/* WP core's own .form-table sets border-collapse: collapse —
+			 * under that model, padding on the <table> element itself is
+			 * ignored per spec, and a border-radius on the table has no
+			 * real border of its own left to round (the visible lines are
+			 * the collapsed cell borders instead). That's why the padding
+			 * and radius below were both silently doing nothing: reverting
+			 * to the (default) separate border model on this one table is
+			 * what actually lets a table element carry its own padding and
+			 * rounded corners like any other box.
+			 */
 			.events-showcase-settings .form-table {
 				background: #fff;
 				border: 1px solid #c3c4c7;
 				border-radius: 8px;
+				border-collapse: separate;
+				border-spacing: 0;
+				/* Belt-and-braces alongside border-collapse: separate above
+				 * — guards against any cell ever painting its own
+				 * background (a row hover state, say) past the table's
+				 * rounded corners. */
+				overflow: hidden;
 				box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 				max-width: 760px;
 				margin: 0 0 2rem;
