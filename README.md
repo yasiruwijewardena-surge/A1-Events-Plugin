@@ -304,5 +304,13 @@ worse off than one who knows to check manually.
 
 ## Deployment
 
-The working demo is hosted on a Cloudways WordPress dev server. *(Link to
-be added once deployed.)*
+**Live demo:** <https://wordpress-1404196-5221843.cloudwaysapps.com/events/>
+
+Hosted on a Cloudways WordPress dev server. The `/events/` page is an
+ordinary WordPress page whose content is a single `[events_showcase]`
+shortcode — nothing about the page itself is special, which is the point.
+
+To ship an update: run `npm run build` in `react-app/`, then upload the
+refreshed `wordpress-plugin/events-showcase/` folder. No PHP edit is
+needed for a new bundle — `class-assets.php` reads the new hashed
+filenames out of `assets/build/.vite/manifest.json` on the next request.
