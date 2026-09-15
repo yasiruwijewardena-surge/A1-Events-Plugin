@@ -135,6 +135,24 @@ class Shortcode {
 				<?php // Always printed (not only when false) so main.jsx never has to guess what an absent attribute means. ?>
 				data-filters="<?php echo esc_attr( $args['filters'] ? 'true' : 'false' ); ?>"
 				data-class="<?php echo esc_attr( $args['class'] ); ?>"
+				<?php
+				// The site's timezone, so the React app can format every
+				// event in the timezone the event actually happens in
+				// rather than in whatever timezone the visitor is sitting
+				// in. Without this, an 18:30 meetup in Colombo renders as
+				// "00:00 the next day" to a visitor at UTC+5:30 and as
+				// something different again to everyone else — the listing
+				// tells each visitor a different, wrong time for the same
+				// physical event.
+				//
+				// wp_timezone_string() returns an IANA name ("Asia/Colombo")
+				// when Settings → General has a city selected, and a bare
+				// offset ("+05:30") when it's set to a manual UTC offset.
+				// Intl accepts both, but normalizeEvent.js validates it
+				// anyway and falls back to the visitor's timezone if the
+				// engine rejects it.
+				?>
+				data-timezone="<?php echo esc_attr( \wp_timezone_string() ); ?>"
 				<?php // Not required by the current routes (permission_callback is '__return_true' on both) — included so an authenticated endpoint added later doesn't need a markup change. ?>
 				data-nonce="<?php echo esc_attr( \wp_create_nonce( 'wp_rest' ) ); ?>"
 			></div>

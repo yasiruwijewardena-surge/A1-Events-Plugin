@@ -43,6 +43,11 @@ function mountAll() {
       // className — but it is still only ever a class list, never
       // markup, so there is nothing here React would need to escape.
       className: el.dataset.class || '',
+      // The site's timezone, so dates render in the timezone the event
+      // happens in rather than the visitor's — see normalizeEvent.js.
+      // Empty string means "not supplied", which that module treats as
+      // "fall back to the visitor's own timezone".
+      timeZone: el.dataset.timezone || '',
     };
 
     createRoot(el).render(

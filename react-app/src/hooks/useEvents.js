@@ -26,8 +26,12 @@ import { normalizeEvent } from '../utils/normalizeEvent.js';
  *   this instead — see main.jsx.
  */
 export function useEvents(config, initialData) {
+  // Arrow function, not a bare `.map(normalizeEvent)`: map passes
+  // (item, index, array), so the index would arrive as normalizeEvent's
+  // second parameter — which is now the timezone. That silently produced
+  // a wrong timezone for every event after the first.
   const [events, setEvents] = useState(() =>
-    (initialData?.events || []).map(normalizeEvent),
+    (initialData?.events || []).map((event) => normalizeEvent(event, config.timeZone)),
   );
   const [total, setTotal] = useState(initialData?.total ?? 0);
   const [pages, setPages] = useState(initialData?.pages ?? 0);
@@ -110,7 +114,7 @@ export function useEvents(config, initialData) {
     })
       .then((result) => {
         if (cancelled) return;
-        setEvents((result.events || []).map(normalizeEvent));
+        setEvents((result.events || []).map((event) => normalizeEvent(event, config.timeZone)));
         setTotal(result.total || 0);
         setPages(result.pages || 0);
       })

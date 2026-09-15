@@ -93,6 +93,36 @@ docs/                              Supporting notes / screenshots for submission
    doesn't take a location param — see the comment at the top of
    `useEvents.js` for the reasoning.
 
+### Timezones
+
+Dates render in **the event's timezone — the WordPress site's — not the
+visitor's.** The shortcode passes `wp_timezone_string()` down as
+`data-timezone` and `normalizeEvent.js` hands it to every `Intl`
+formatter.
+
+This matters because these are physical events. A bare
+`toLocaleString()` formats in whoever's reading's timezone, so an 18:30
+meetup in Colombo rendered as "00:00 the next day" to a visitor at
+UTC+5:30 and as something different again to everyone else — the listing
+told each visitor a different, wrong time for the same event. A two-day
+event could even show as spanning three.
+
+Only the timezone is pinned; the **locale stays the visitor's**, so month
+names, word order and 12-vs-24-hour clock still follow their own
+conventions. It's the instant being described that's held fixed, not the
+language describing it.
+
+Two consequences worth knowing:
+
+- The displayed time always equals what the editor typed, and stays
+  correct even if Settings → General's timezone is changed later — the
+  stored wall-clock value and the formatting timezone move together.
+- `isSameDay()` compares formatted day keys rather than
+  `getDate()`/`getMonth()`, which read the visitor's timezone. An event
+  running 23:00–01:00 is one calendar day in one timezone and two in
+  another, and that decides whether the modal shows a time range or a
+  date range.
+
 > **Behaviour note:** the default listing (`show=upcoming`) now hides
 > past events — previously every event ever created was returned,
 > oldest first. Pass `show="all"` (shortcode) or `?show=all` (REST) for
