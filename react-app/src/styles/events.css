@@ -627,6 +627,27 @@
   border: 0;
 }
 
+/* Refetch state: the results stay mounted and readable while a new page
+ * or filter loads (App.jsx only shows the spinner when there is nothing
+ * on screen yet), dimmed just enough to read as "working" without the
+ * grid collapsing and re-expanding on every keystroke. pointer-events is
+ * dropped so a click can't land on a card that is about to be replaced
+ * by a different event. */
+.events-showcase .events-showcase__results {
+  transition: opacity 0.15s ease;
+}
+
+.events-showcase .events-showcase__results[aria-busy='true'] {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .events-showcase .events-showcase__results {
+    transition: none;
+  }
+}
+
 /* -------------------------------------------------------------------
  * Layout presets: grid (styled above, the default), list, and compact.
  * Every selector here has the same specificity as its counterpart

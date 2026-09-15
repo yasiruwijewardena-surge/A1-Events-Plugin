@@ -57,6 +57,15 @@ export default function App({ config, initialData }) {
   // when there's a control to have set it in the first place.
   const hasActiveFilter = showFilters && Boolean(search || filters.category || filters.location);
 
+  // Only a load with nothing already on screen gets the spinner. A
+  // refetch triggered by a filter, a search keystroke, or a page change
+  // keeps the previous results mounted and dims them instead (see
+  // aria-busy below) — swapping a populated grid for a one-line spinner
+  // collapses the page height and then re-expands it on every keystroke,
+  // which reads as flicker rather than as progress.
+  const isInitialLoad = loading && filteredEvents.length === 0;
+  const isRefreshing = loading && filteredEvents.length > 0;
+
   return (
     <div className={wrapperClassName} ref={containerRef}>
       {showFilters && (
@@ -78,7 +87,7 @@ export default function App({ config, initialData }) {
         {resultsMessage}
       </p>
 
-      {loading && <Loader />}
+      {isInitialLoad && <Loader />}
 
       {!loading && error && (
         <p className="events-showcase__error" role="alert">
@@ -86,15 +95,27 @@ export default function App({ config, initialData }) {
         </p>
       )}
 
-      {!loading && !error && filteredEvents.length === 0 && (
-        <NoResults hasActiveFilter={hasActiveFilter} />
-      )}
-
-      {!loading && !error && filteredEvents.length > 0 && (
-        <>
-          <EventsGrid events={filteredEvents} />
+      {/* Results outlive a failed refetch. Keeping the stale-but-valid
+          grid beneath the error banner beats replacing it with nothing —
+          the visitor keeps whatever they were already reading, and the
+          banner explains that the update didn't land. Only a failure
+          with nothing to fall back on (the very first load) leaves the
+          error standing on its own. */}
+      {!isInitialLoad && (!error || filteredEvents.length > 0) && (
+        // Pagination sits outside the empty/non-empty branch on purpose.
+        // The location filter is applied client-side over the loaded page
+        // (see useEvents.js), so it can empty the *current* page while
+        // later pages still hold matches — rendering the pager only when
+        // filteredEvents is non-empty stranded the visitor on a blank
+        // page with no control to get back off it.
+        <div className="events-showcase__results" aria-busy={isRefreshing}>
+          {filteredEvents.length === 0 ? (
+            <NoResults hasActiveFilter={hasActiveFilter} show={config.show} />
+          ) : (
+            <EventsGrid events={filteredEvents} />
+          )}
           {showFilters && <Pagination page={page} pages={pages} onChange={handlePageChange} />}
-        </>
+        </div>
       )}
     </div>
   );
