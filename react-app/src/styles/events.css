@@ -60,6 +60,11 @@
   --es-title-weight: 700;
   --es-modal-title-size: 1.625rem;
   --es-excerpt-size: 0.875rem;
+  /* These two are used together: the card excerpt's height ceiling is
+   * derived from both, so they must stay in the same place to stay in
+   * sync. Raise --es-excerpt-lines to show more of each excerpt. */
+  --es-excerpt-line-height: 1.55;
+  --es-excerpt-lines: 2;
   --es-meta-size: 0.8125rem;
   /* Small uppercase text: badges, control labels, the modal's <dt>s. */
   --es-eyebrow-size: 0.6875rem;
@@ -605,13 +610,38 @@
  * close to the same height, and excerpt length is entirely up to whoever
  * wrote the event — clamping is what keeps one long excerpt from setting
  * the row height for every card beside it. */
+/* Clamped to two lines. A card grid only works if the cards are close to
+ * the same height, and excerpt length is entirely up to whoever wrote the
+ * event — clamping is what keeps one long excerpt from setting the row
+ * height for every card beside it.
+ *
+ * max-height is the authoritative constraint, not -webkit-line-clamp.
+ * The clamp alone is no longer dependable: Chrome 153 has dropped legacy
+ * `display: -webkit-box` — it computes to `flow-root` and cannot be
+ * forced back, even from an inline style — after which the clamp
+ * half-applies and settles at ~2.64 lines, showing a sliced-off third
+ * line. (Unprefixed `line-clamp` doesn't rescue it there either.)
+ *
+ * A height ceiling has no such dependency: it cuts at exactly two lines
+ * in every engine. The clamp properties stay because where they *do*
+ * work they add the trailing ellipsis, which the ceiling can't — so
+ * browsers that implement it get the nicer result and the rest get a
+ * clean two-line cut instead of a mangled third.
+ *
+ * The ceiling is derived from the same line-height token that sets the
+ * line-height, so the two can't drift apart. A host theme overriding
+ * line-height on this element would desync them, but nothing in the
+ * target theme does, and reaching for !important to prevent a
+ * hypothetical is worse than the risk.
+ */
 .events-showcase .event-card__excerpt {
   margin: 0;
   font-size: var(--es-excerpt-size);
-  line-height: 1.55;
+  line-height: var(--es-excerpt-line-height);
   color: var(--es-text-muted);
+  max-height: calc(var(--es-excerpt-line-height) * var(--es-excerpt-lines) * 1em);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: var(--es-excerpt-lines);
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

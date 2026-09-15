@@ -192,6 +192,7 @@ instances on the same page can be themed independently.
 | `--es-title-size` / `--es-title-weight` | `1.125rem` / `700` | Card title |
 | `--es-modal-title-size` | `1.625rem` | Modal heading |
 | `--es-excerpt-size` | `0.875rem` | Card excerpt, modal body |
+| `--es-excerpt-line-height` / `--es-excerpt-lines` | `1.55` / `2` | Card excerpt leading, and how many lines before it's clipped. The height ceiling is derived from both, so they're declared together to stay in sync |
 | `--es-meta-size` | `0.8125rem` | Location, category, pager status |
 | `--es-eyebrow-size` | `0.6875rem` | Badges, control labels, modal `<dt>`s |
 | `--es-date-month-size` / `--es-date-day-size` | `0.75rem` / `1.75rem` | The card's calendar tile |
