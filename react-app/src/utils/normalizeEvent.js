@@ -34,6 +34,23 @@ export function normalizeEvent(raw) {
     startDate,
     endDate,
     allDay,
+    // Raw ISO string kept alongside the parsed Date so the card can put a
+    // machine-readable datetime on its <time> element without having to
+    // re-serialise (and risk shifting) the value.
+    startIso: raw.start_datetime || '',
+    // Month/day split out for the card's calendar-tile date. Derived here
+    // rather than in the component so every consumer of an event gets the
+    // same locale treatment as dateLabel/fullDateLabel above. Month is
+    // whatever the visitor's locale calls it, uppercased in CSS rather
+    // than here — toUpperCase() on some locales produces a different
+    // string length than the display font expects, and letting CSS do it
+    // keeps the original around for anything that wants it.
+    dateTile: startDate
+      ? {
+          month: startDate.toLocaleDateString(undefined, { month: 'short' }),
+          day: startDate.toLocaleDateString(undefined, { day: 'numeric' }),
+        }
+      : null,
     // Falls back to 'scheduled' defensively — normalise() on the PHP
     // side already guarantees this, but a field this display-sensitive
     // (it drives a "Cancelled" notice) shouldn't trust the network on
