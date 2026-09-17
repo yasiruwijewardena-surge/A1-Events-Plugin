@@ -107,21 +107,6 @@ class Events_Repository {
 		$show_values = array( 'upcoming', 'past', 'all' );
 		$args['show'] = \in_array( $args['show'], $show_values, true ) ? $args['show'] : 'upcoming';
 
-		// $related_to is already part of $args (and so already part of this
-		// hash) — no separate cache-busting mechanism needed for it. The
-		// term IDs derived from it below aren't hashed in explicitly, but
-		// they don't need to be: they're a pure function of $related_to at
-		// query time, so the same $related_to always derives the same
-		// terms for as long as that post's terms are unchanged, and the
-		// moment they *do* change, set_object_terms fires
-		// maybe_bust_cache_on_terms() below and invalidates every entry in
-		// the group anyway — including this one.
-		$cache_key = $this->cache_key( 'events_' . \md5( (string) \wp_json_encode( $args ) ) );
-		$cached    = \wp_cache_get( $cache_key, self::CACHE_GROUP );
-		if ( false !== $cached ) {
-			return $cached;
-		}
-
 		// Named clauses, not the old top-level meta_key/orderby=meta_value
 		// pair: that shorthand and a second meta_query clause (the date
 		// comparison below) would both try to join wp_postmeta, and two
@@ -205,6 +190,50 @@ class Events_Repository {
 					'terms'    => \sanitize_title( (string) $args['category'] ),
 				),
 			);
+		}
+
+		/**
+		 * Filters the WP_Query arguments for an events listing.
+		 *
+		 * This is the seam for a site that needs to change *what is
+		 * selected* rather than how it is shaped — exclude a category, add
+		 * a meta constraint, restrict by author — without forking the
+		 * plugin. It is the counterpart to `events_showcase_rest_item`,
+		 * which filters each event on the way out; between them a site can
+		 * influence both ends of the query without touching this file.
+		 *
+		 * The result is cached (see below), and the cache key is derived
+		 * from the filtered arguments — so a filter that varies its output
+		 * automatically varies the key. Nothing extra is needed to keep
+		 * the two in step.
+		 *
+		 * @param array $query_args Arguments about to be passed to WP_Query.
+		 * @param array $args       The repository's own resolved arguments.
+		 */
+		$query_args = (array) \apply_filters( 'events_showcase_query_args', $query_args, $args );
+
+		// Cached on the *filtered* arguments, not on $args, so that a
+		// filter above is reflected in the key automatically rather than
+		// silently serving another caller's cached result.
+		//
+		// The date clause's value is `now`, which would otherwise make the
+		// key unique per second and defeat the cache entirely. It is a
+		// pure function of $args['show'] — which is part of the hash — so
+		// dropping it from the key costs nothing and restores a cache
+		// lifetime bounded by invalidation rather than by the clock.
+		//
+		// The trade-off of hashing here rather than earlier: a related
+		// listing now resolves its source post's terms (one query) before
+		// the cache is consulted. That's the price of a key that can't go
+		// stale against a filter, and it's one query on the only template
+		// where related listings appear.
+		$key_args = $query_args;
+		unset( $key_args['meta_query']['date_clause']['value'] );
+
+		$cache_key = $this->cache_key( 'events_' . \md5( (string) \wp_json_encode( array( $args, $key_args ) ) ) );
+		$cached    = \wp_cache_get( $cache_key, self::CACHE_GROUP );
+		if ( false !== $cached ) {
+			return $cached;
 		}
 
 		$query = new \WP_Query( $query_args );

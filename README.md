@@ -407,6 +407,82 @@ contains the shortcode (`has_shortcode()`), and reads the hashed
 filenames from Vite's `manifest.json` rather than hard-coding them, so a
 fresh `npm run build` never requires touching PHP.
 
+## Extending the plugin
+
+Six filters, chosen so another developer can adapt the plugin to a site
+without forking it. They cover the three places a site usually needs to
+intervene: what gets selected, what comes back, and what gets loaded.
+
+| Filter | Signature | Use it to |
+|---|---|---|
+| `events_showcase_query_args` | `( array $query_args, array $args )` | Change **what is selected** — exclude a category, add a meta constraint, restrict by author. Runs just before `WP_Query`. |
+| `events_showcase_rest_item` | `( array $item, WP_Post $post )` | Change **what comes back** — add a field to every event, reshape one. |
+| `events_showcase_schema` | `( array $schema, array $event, WP_Post $post )` | Adjust the Schema.org `Event` JSON-LD. |
+| `events_showcase_enqueue_assets` | `( bool $should, WP_Post\|null $post )` | Force assets on (or off) where `has_shortcode()` can't see the shortcode — see [Known limitations](#known-limitations). |
+| `events_showcase_post_type` | `( string $slug )` | Rename the post type, if `es_event` collides on the target site. |
+| `events_showcase_taxonomy` | `( string $slug )` | Rename the category taxonomy, same reason. |
+
+`events_showcase_query_args` and `events_showcase_rest_item` are
+deliberate counterparts — between them a site can influence both ends of
+the query without touching plugin code.
+
+```php
+// Never list events in the "internal" category on the public site.
+add_filter( 'events_showcase_query_args', function ( $query_args ) {
+    $query_args['tax_query'][] = array(
+        'taxonomy' => 'es_event_category',
+        'field'    => 'slug',
+        'terms'    => 'internal',
+        'operator' => 'NOT IN',
+    );
+    return $query_args;
+} );
+```
+
+**On caching:** results are cached, and the cache key is derived from the
+*filtered* query arguments — so a filter that varies its output varies
+the key automatically. Nothing extra is needed to keep the two in step.
+(The key deliberately excludes the date clause's `now` value, which would
+otherwise make it unique per second and defeat the cache entirely; it's a
+pure function of the `show` argument, which *is* part of the key.)
+
+## Translations
+
+The plugin loads its own translations from `languages/`, and
+`languages/events-showcase.pot` ships as the translation template — 114
+strings.
+
+`load_plugin_textdomain()` is called explicitly because this plugin isn't
+distributed through wordpress.org. Core auto-loads translations for
+plugins that are; a bundled `languages/` folder gets no such treatment,
+so without that call every `__()` returns English regardless of the
+site's locale. It's hooked to `init` rather than `plugins_loaded` —
+since WP 6.7, loading a text domain earlier triggers a
+`_doing_it_wrong()` notice, because the locale isn't settled yet.
+
+To add a language, copy the `.pot` to `languages/events-showcase-<locale>.po`
+(e.g. `events-showcase-si_LK.po`), translate, and compile to `.mo`.
+
+## Distribution & updates
+
+Deliberately **not** distributed through wordpress.org, and the header
+declares `Update URI: false` to say so. Without that, a plugin published
+there under a matching slug could serve updates to sites running this
+one — a real hijacking vector for any self-hosted plugin, and one line to
+close.
+
+The install artifact is a zip built from `wordpress-plugin/events-showcase/`.
+A bare `git clone` is *not* installable, because the Vite build output is
+generated rather than committed (see `.gitignore`) — run `npm run build`
+in `react-app/` first, or use a release zip.
+
+**Updates are manual.** For one dev site that's correct; across a fleet
+of client sites it wouldn't be, and the options would be a private update
+server (e.g. a `pre_set_site_transient_update_plugins` hook pointed at
+your own endpoint), distribution as a Composer package, or a Git-based
+deploy. That's a deliberate scope boundary, not an oversight — building
+an update channel for a single-site assignment would be ceremony.
+
 ## Known limitations
 
 **Asset loading can miss the shortcode outside plain post content.**

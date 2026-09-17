@@ -2,12 +2,14 @@
 /**
  * Plugin Name:       Events Showcase
  * Description:       Headless events data layer — custom post type, a built-in fields UI (or ACF, if installed), and a REST API — for a React-driven events grid mounted via shortcode.
- * Version:           1.6.1
+ * Version:           1.7.0
  * Requires at least: 6.2
  * Requires PHP:      8.0
  * Author:            Yasiru Wijewardena
  * License:           GPL-2.0-or-later
  * Text Domain:       events-showcase
+ * Domain Path:       /languages
+ * Update URI:        false
  *
  * @package Events_Showcase
  */
@@ -16,7 +18,7 @@ namespace Events_Showcase;
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'EVENTS_SHOWCASE_VERSION', '1.6.1' );
+define( 'EVENTS_SHOWCASE_VERSION', '1.7.0' );
 define( 'EVENTS_SHOWCASE_DIR', \plugin_dir_path( __FILE__ ) );
 define( 'EVENTS_SHOWCASE_URL', \plugin_dir_url( __FILE__ ) );
 
@@ -37,6 +39,31 @@ require_once EVENTS_SHOWCASE_DIR . 'includes/class-assets.php';
  *
  * @return void
  */
+/**
+ * Loads the plugin's own translations from /languages.
+ *
+ * Needed because this plugin isn't distributed through wordpress.org —
+ * translations for plugins that are get installed and loaded by core
+ * automatically, and a bundled /languages folder does not. Without this
+ * call every __() in the plugin silently returns English no matter what
+ * the site's locale is or what .mo files ship alongside it.
+ *
+ * Hooked to `init` rather than called during `plugins_loaded`: since
+ * WP 6.7, loading a text domain before `init` triggers a
+ * _doing_it_wrong() notice, because translations can't be resolved until
+ * the locale is settled.
+ *
+ * @return void
+ */
+function load_textdomain() {
+	\load_plugin_textdomain(
+		'events-showcase',
+		false,
+		\dirname( \plugin_basename( __FILE__ ) ) . '/languages'
+	);
+}
+\add_action( 'init', __NAMESPACE__ . '\\load_textdomain' );
+
 function bootstrap() {
 	new Post_Type();
 	new Settings();
