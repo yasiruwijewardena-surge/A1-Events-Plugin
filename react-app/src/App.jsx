@@ -125,7 +125,7 @@ export default function App({ config, initialData }) {
           {filteredEvents.length === 0 ? (
             <NoResults hasActiveFilter={hasActiveFilter} show={config.show} />
           ) : (
-            <EventsGrid events={filteredEvents} />
+            <EventsGrid events={filteredEvents} className={config.className} />
           )}
           {showFilters && <Pagination page={page} pages={pages} onChange={handlePageChange} />}
         </div>

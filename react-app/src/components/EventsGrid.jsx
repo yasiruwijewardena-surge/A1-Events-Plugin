@@ -4,7 +4,7 @@ import EventModal from './EventModal.jsx';
 
 // Renders the filtered events as a grid of cards and owns which
 // event (if any) is currently open in the details modal.
-export default function EventsGrid({ events }) {
+export default function EventsGrid({ events, className = '' }) {
   const [activeEvent, setActiveEvent] = useState(null);
 
   return (
@@ -18,7 +18,13 @@ export default function EventsGrid({ events }) {
       </ul>
 
       {activeEvent && (
-        <EventModal event={activeEvent} onClose={() => setActiveEvent(null)} />
+        <EventModal
+          event={activeEvent}
+          onClose={() => setActiveEvent(null)}
+          // Forwarded so the body-portalled dialog can carry the same
+          // theme class as the grid — see EventModal.jsx.
+          className={className}
+        />
       )}
     </>
   );

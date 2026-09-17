@@ -4,7 +4,7 @@ import { useFocusTrap } from '../hooks/useFocusTrap.js';
 
 // Full event details popup. Closable via the close button, an overlay
 // click, or Escape. Traps focus while open and restores it on close.
-export default function EventModal({ event, onClose }) {
+export default function EventModal({ event, onClose, className = '' }) {
   const dialogRef = useRef(null);
   // useId(), not a string literal — the shortcode supports more than one
   // instance per page, and a hardcoded id would collide (duplicate DOM
@@ -71,8 +71,14 @@ export default function EventModal({ event, onClose }) {
   // file for why), and a body portal lands outside the shortcode's own
   // .events-showcase wrapper — without re-declaring the class here, the
   // modal would render completely unstyled.
+  // The shortcode's `class` attribute has to be re-applied here, not just
+  // on the grid's wrapper. A body portal lands outside that wrapper, so
+  // the dialog inherits neither the component's own scoping nor any
+  // theme class the site put on the instance — which meant a themed
+  // instance had a restyled grid and a stock-looking dialog, and the
+  // --es-overlay / --es-modal-* tokens could not be reached at all.
   return createPortal(
-    <div className="events-showcase">
+    <div className={`events-showcase${className ? ` ${className}` : ''}`}>
       <div className="event-modal__overlay" onMouseDown={handleOverlayClick}>
         <div
           className="event-modal"
