@@ -80,6 +80,7 @@ class REST_Controller {
 				'per_page' => $request->get_param( 'per_page' ),
 				'page'     => $request->get_param( 'page' ),
 				'search'   => $request->get_param( 'search' ),
+				'location' => $request->get_param( 'location' ),
 				'show'     => $request->get_param( 'show' ),
 			)
 		);
@@ -183,6 +184,17 @@ class REST_Controller {
 				'validate_callback' => static function ( $value ) {
 					// Bounding length isn't about correctness — it's a
 					// cheap guard against a pathologically large LIKE query.
+					return \is_string( $value ) && \strlen( $value ) <= 200;
+				},
+			),
+			'location' => array(
+				'type'              => 'string',
+				'required'          => false,
+				'default'           => '',
+				'sanitize_callback' => 'sanitize_text_field',
+				'validate_callback' => static function ( $value ) {
+					// Same bound as search. A location nobody uses just
+					// yields zero results, not an error — same as category.
 					return \is_string( $value ) && \strlen( $value ) <= 200;
 				},
 			),

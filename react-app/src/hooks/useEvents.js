@@ -1,23 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { fetchEvents, fetchFilters } from '../utils/api.js';
 import { normalizeEvent } from '../utils/normalizeEvent.js';
 
 /**
  * Owns events data + filter state for one shortcode instance.
  *
- * `category` filtering is server-side: it's sent to the REST API as a
- * query param and triggers a refetch, same as the shortcode's own
- * server-rendered payload. `location` is a lighter, client-side second
- * filter dimension applied over whatever page of events is already
- * loaded — there's no REST query param for it (only category/search/
- * page/per_page exist on Events_Repository::get_events()), so its
- * options are derived from the currently-loaded events rather than the
- * global list, to avoid offering a choice that can't actually narrow
- * anything. This is a known trade-off, not an oversight: paging changes
- * which events are "currently loaded," so the location dropdown's
- * options and its filtering both silently re-scope to whatever page
- * you're on. A location that only appears on page 2 isn't selectable
- * while viewing page 1.
+ * Every filter — category, location, search — is server-side: each is
+ * sent to the REST API as a query param and triggers a refetch, the same
+ * query the shortcode's server-rendered payload ran. That keeps the
+ * result count and the pager describing the whole result set, not just
+ * whichever page happens to be loaded, and lets the dropdowns offer every
+ * option in use rather than only those on the current page.
  *
  * @param {{restUrl: string, perPage: number, initialCategory: string, initialSearch: string, show: string}} config
  * @param {{events: object[], total: number, pages: number}|null} initialData
@@ -44,6 +37,7 @@ export function useEvents(config, initialData) {
   const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState(null);
   const [categories, setCategories] = useState([]);
+  const [locations, setLocations] = useState([]);
 
   // The SSR payload already reflects config.initialCategory/initialSearch
   // (the shortcode queried with the same values), so the first run of the
@@ -60,9 +54,9 @@ export function useEvents(config, initialData) {
     return () => clearTimeout(timeout);
   }, [search]);
 
-  // Category options come from the REST API's global list, independent of
-  // what's currently loaded — selecting any of them is always valid since
-  // it triggers a fresh server-side query.
+  // Category and location options come from the REST API's global lists,
+  // independent of what's currently loaded — selecting any of them is
+  // always valid since it triggers a fresh server-side query.
   //
   // Skipped entirely when config.filters is false: App.jsx doesn't render
   // EventFilters in that mode, so there's nothing to populate — firing
@@ -76,7 +70,9 @@ export function useEvents(config, initialData) {
 
     fetchFilters(config.restUrl)
       .then((result) => {
-        if (!cancelled) setCategories(result.categories || []);
+        if (cancelled) return;
+        setCategories(result.categories || []);
+        setLocations(result.locations || []);
       })
       .catch(() => {
         // Filter options are a progressive enhancement; losing them
@@ -89,11 +85,11 @@ export function useEvents(config, initialData) {
   }, [config.restUrl, config.filters]);
 
   // Resets to page 1 whenever a server-side query parameter changes, so a
-  // new category/search doesn't stay stuck on a page number that may no
+  // new category/location/search doesn't stay stuck on a page number that may no
   // longer exist.
   useEffect(() => {
     setPage(1);
-  }, [filters.category, debouncedSearch]);
+  }, [filters.category, filters.location, debouncedSearch]);
 
   useEffect(() => {
     if (skipNextFetch.current) {
@@ -107,6 +103,7 @@ export function useEvents(config, initialData) {
 
     fetchEvents(config.restUrl, {
       category: filters.category,
+      location: filters.location,
       search: debouncedSearch,
       perPage: config.perPage,
       page,
@@ -129,38 +126,19 @@ export function useEvents(config, initialData) {
     return () => {
       cancelled = true;
     };
-  }, [config.restUrl, config.perPage, config.show, filters.category, debouncedSearch, page]);
-
-  const locations = useMemo(() => {
-    const fromEvents = events.map((e) => e.location).filter(Boolean);
-
-    // The selected location is kept in the list even when no event on the
-    // current page has it. Options are derived from the loaded page, so
-    // paging to a page with no matches would otherwise drop the selected
-    // value out of the <select> entirely — leaving a control whose value
-    // matches no option, which renders blank while still filtering. The
-    // visitor could see the effect of a filter with no way to read or
-    // clear it.
-    if (filters.location) fromEvents.push(filters.location);
-
-    return [...new Set(fromEvents)].sort();
-  }, [events, filters.location]);
-
-  const filteredEvents = useMemo(
-    () => events.filter((e) => !filters.location || e.location === filters.location),
-    [events, filters.location],
-  );
+  }, [
+    config.restUrl,
+    config.perPage,
+    config.show,
+    filters.category,
+    filters.location,
+    debouncedSearch,
+    page,
+  ]);
 
   // Announces the result count once the visitor has changed something —
   // silent on the initial render (nothing has changed yet) and silent
   // mid-fetch, where the count still describes the previous results.
-  //
-  // Derived from what is actually on screen rather than set inside the
-  // fetch callback, where this used to live. The location filter runs
-  // client-side and triggers no fetch at all, so a fetch-time
-  // announcement both missed location changes entirely and read out the
-  // server's unfiltered `total` next to a grid that filter had already
-  // narrowed.
   const hasAnnounced = useRef(false);
   useEffect(() => {
     if (loading) return;
@@ -170,20 +148,13 @@ export function useEvents(config, initialData) {
       return;
     }
 
-    // `total` counts every page and is the right figure while only the
-    // server-side filters (category, search) are applied. Once the
-    // client-side location filter narrows the loaded page, it no longer
-    // describes anything the visitor can actually reach, so the visible
-    // count becomes the only honest number.
-    const count = filters.location ? filteredEvents.length : total;
-
-    setResultsMessage(count === 1 ? '1 event matches' : `${count} events match`);
-  }, [filteredEvents, filters.location, total, loading]);
+    setResultsMessage(total === 1 ? '1 event matches' : `${total} events match`);
+  }, [events, total, loading]);
 
   return {
     loading,
     error,
-    filteredEvents,
+    events,
     filters,
     setFilters,
     search,

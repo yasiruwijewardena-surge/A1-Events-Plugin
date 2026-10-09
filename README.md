@@ -68,7 +68,7 @@ docs/                              Supporting notes / screenshots for submission
    MySQL format.
 3. Two consumers read that data:
    - **REST API** — `GET /wp-json/events-showcase/v1/events` (filters:
-     `category`, `search`, `show`, `page`, `per_page`) and
+     `category`, `location`, `search`, `show`, `page`, `per_page`) and
      `.../v1/filters` (available categories + locations, for
      data-driven filter controls).
    - **The shortcode** (`class-shortcode.php`) calls the same
@@ -87,11 +87,11 @@ docs/                              Supporting notes / screenshots for submission
    if present, and mounts one independent `<App>` per element.
 5. `useEvents()` hydrates from that inline payload on first render (no
    fetch, no loading spinner), then calls the REST API for every
-   subsequent filter/search change. Category filtering is server-side
-   (a real REST query param); location is a lighter client-side second
-   filter over whatever page is currently loaded, since the REST API
-   doesn't take a location param — see the comment at the top of
-   `useEvents.js` for the reasoning.
+   subsequent filter/search change. Every filter — category, location
+   and search — is a real REST query param applied server-side, so the
+   result count and pager always describe the whole result set, and the
+   dropdowns list every option in use (from `/filters`), not just those
+   on the loaded page.
 
 ### Timezones
 
