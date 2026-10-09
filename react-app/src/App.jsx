@@ -15,7 +15,7 @@ export default function App({ config, initialData }) {
   const {
     loading,
     error,
-    filteredEvents,
+    events,
     filters,
     setFilters,
     search,
@@ -76,8 +76,8 @@ export default function App({ config, initialData }) {
   // aria-busy below) — swapping a populated grid for a one-line spinner
   // collapses the page height and then re-expands it on every keystroke,
   // which reads as flicker rather than as progress.
-  const isInitialLoad = loading && filteredEvents.length === 0;
-  const isRefreshing = loading && filteredEvents.length > 0;
+  const isInitialLoad = loading && events.length === 0;
+  const isRefreshing = loading && events.length > 0;
 
   return (
     <div className={wrapperClassName} ref={containerRef}>
@@ -114,18 +114,14 @@ export default function App({ config, initialData }) {
           banner explains that the update didn't land. Only a failure
           with nothing to fall back on (the very first load) leaves the
           error standing on its own. */}
-      {!isInitialLoad && (!error || filteredEvents.length > 0) && (
-        // Pagination sits outside the empty/non-empty branch on purpose.
-        // The location filter is applied client-side over the loaded page
-        // (see useEvents.js), so it can empty the *current* page while
-        // later pages still hold matches — rendering the pager only when
-        // filteredEvents is non-empty stranded the visitor on a blank
-        // page with no control to get back off it.
+      {!isInitialLoad && (!error || events.length > 0) && (
+        // Pagination sits outside the empty/non-empty branch so a visitor
+        // is never left on a blank page with no control to get off it.
         <div className="events-showcase__results" aria-busy={isRefreshing}>
-          {filteredEvents.length === 0 ? (
+          {events.length === 0 ? (
             <NoResults hasActiveFilter={hasActiveFilter} show={config.show} />
           ) : (
-            <EventsGrid events={filteredEvents} className={config.className} />
+            <EventsGrid events={events} className={config.className} />
           )}
           {showFilters && <Pagination page={page} pages={pages} onChange={handlePageChange} />}
         </div>

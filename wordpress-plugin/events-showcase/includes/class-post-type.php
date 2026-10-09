@@ -75,7 +75,10 @@ class Post_Type {
 				'public'       => true,
 				'has_archive'  => false,
 				'show_in_rest' => true,
-				'menu_icon'    => 'dashicons-calendar-event',
+				// Not dashicons-calendar-event: the dashicons.min.css shipped
+				// with the site's WordPress (7.1) has no glyph for it, so the
+				// menu showed an empty icon slot. calendar-alt is present.
+				'menu_icon'    => 'dashicons-calendar-alt',
 				'supports'     => array( 'title', 'editor', 'thumbnail', 'excerpt', 'revisions' ),
 				// The internal slug is `es_event` to avoid colliding with
 				// the ecosystem's most commonly registered post type, but

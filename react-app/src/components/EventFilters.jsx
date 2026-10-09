@@ -1,7 +1,5 @@
-// Filter controls: category (server-side, options from the REST /filters
-// endpoint) and location (client-side, options derived from whatever
-// events are currently loaded — see useEvents.js for why the two work
-// differently).
+// Filter controls: category and location. Both are server-side REST
+// params, with options from the REST /filters endpoint — see useEvents.js.
 export default function EventFilters({ filters, onChange, categories, locations }) {
   const update = (key) => (e) => {
     onChange({ ...filters, [key]: e.target.value });

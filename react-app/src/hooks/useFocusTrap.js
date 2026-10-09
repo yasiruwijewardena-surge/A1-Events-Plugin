@@ -20,11 +20,20 @@ export function useFocusTrap(containerRef, onEscape) {
 
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
+      const { activeElement } = document;
 
-      if (e.shiftKey && document.activeElement === first) {
+      // The dialog itself holds focus right after opening (EventModal
+      // focuses it, tabIndex -1), and it is not in `focusable`. Without
+      // this branch Shift+Tab from there isn't "on first", so the browser
+      // moves focus backwards out of the portal onto the page behind.
+      // Same if focus has somehow already left the container.
+      if (activeElement === containerRef.current || !containerRef.current.contains(activeElement)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      } else if (e.shiftKey && activeElement === first) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
+      } else if (!e.shiftKey && activeElement === last) {
         e.preventDefault();
         first.focus();
       }

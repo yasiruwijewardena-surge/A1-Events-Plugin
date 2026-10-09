@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name:       Events Showcase
- * Description:       Headless events data layer — custom post type, a built-in fields UI (or ACF, if installed), and a REST API — for a React-driven events grid mounted via shortcode.
- * Version:           1.7.1
+ * Description:       Add an interactive events section to any page with the [events_showcase] shortcode: event cards with category and location filters, search, and a popup with full event details. Manage events under Events in the admin menu, and set site-wide defaults under Events → Settings.
+ * Version:           1.8.0
  * Requires at least: 6.2
  * Requires PHP:      8.0
  * Author:            Yasiru Wijewardena
@@ -18,7 +18,7 @@ namespace Events_Showcase;
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'EVENTS_SHOWCASE_VERSION', '1.7.1' );
+define( 'EVENTS_SHOWCASE_VERSION', '1.8.0' );
 define( 'EVENTS_SHOWCASE_DIR', \plugin_dir_path( __FILE__ ) );
 define( 'EVENTS_SHOWCASE_URL', \plugin_dir_url( __FILE__ ) );
 
@@ -32,13 +32,6 @@ require_once EVENTS_SHOWCASE_DIR . 'includes/class-shortcode.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-schema.php';
 require_once EVENTS_SHOWCASE_DIR . 'includes/class-assets.php';
 
-/**
- * Instantiates every class the plugin needs. Each class wires up its own
- * hooks in its constructor, so this function is just a registry of "what
- * exists" — no ordering logic beyond what plugins_loaded already gives us.
- *
- * @return void
- */
 /**
  * Loads the plugin's own translations from /languages.
  *
@@ -64,6 +57,13 @@ function load_textdomain() {
 }
 \add_action( 'init', __NAMESPACE__ . '\\load_textdomain' );
 
+/**
+ * Instantiates every class the plugin needs. Each class wires up its own
+ * hooks in its constructor, so this function is just a registry of "what
+ * exists" — no ordering logic beyond what plugins_loaded already gives us.
+ *
+ * @return void
+ */
 function bootstrap() {
 	new Post_Type();
 	new Settings();

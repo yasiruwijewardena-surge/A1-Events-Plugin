@@ -8,7 +8,7 @@
  * Fetches one page of events.
  *
  * @param {string} restUrl Namespace root from the mount element's data-api.
- * @param {{category?: string, page?: number, perPage?: number, search?: string, show?: string}} params
+ * @param {{category?: string, location?: string, page?: number, perPage?: number, search?: string, show?: string}} params
  * @returns {Promise<{events: object[], total: number, pages: number}>}
  */
 export async function fetchEvents(restUrl, params = {}) {
@@ -16,6 +16,7 @@ export async function fetchEvents(restUrl, params = {}) {
 
   if (params.category) url.searchParams.set('category', params.category);
   if (params.search) url.searchParams.set('search', params.search);
+  if (params.location) url.searchParams.set('location', params.location);
   // Always sent, not `if (params.show)`: 'upcoming' is a real, meaningful
   // choice here, not an empty/absent value like category or search — the
   // REST default already matches it, but relying on that silently would
@@ -36,15 +37,9 @@ export async function fetchEvents(restUrl, params = {}) {
 }
 
 /**
- * Fetches the available filter options. Only the `categories` half is
- * currently used (by useEvents.js, for the category dropdown, since
- * category filtering is a real server-side query and any category is
- * always a valid choice). `locations` is intentionally ignored — location
- * filtering is client-side over whatever page is already loaded, so
- * useEvents.js derives its options from those loaded events instead;
- * offering a server-wide location that can't narrow the current page
- * would be a dead option. The route still returns both — it's public and
- * harmless, and a future server-side location filter could start using it.
+ * Fetches the available filter options — every category and location in
+ * use across all events, not just the loaded page. Both filters are
+ * server-side REST params, so any option listed here is a real query.
  *
  * @param {string} restUrl Namespace root.
  * @returns {Promise<{categories: {slug: string, name: string}[], locations: string[]}>}

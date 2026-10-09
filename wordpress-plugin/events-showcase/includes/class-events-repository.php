@@ -56,6 +56,7 @@ class Events_Repository {
 	 *     @type int      $per_page   Results per page.
 	 *     @type int      $page       Page number, 1-indexed.
 	 *     @type string   $search     Free-text search term.
+	 *     @type string   $location   Exact es_location value to filter by.
 	 *     @type string   $show       'upcoming' (default), 'past', or 'all'.
 	 *     @type int|null $related_to Post ID to build a "related events"
 	 *                                listing around, or null (default) for
@@ -85,6 +86,7 @@ class Events_Repository {
 				'per_page'   => 10,
 				'page'       => 1,
 				'search'     => '',
+				'location'   => '',
 				'show'       => 'upcoming',
 				'related_to' => null,
 			)
@@ -97,6 +99,7 @@ class Events_Repository {
 		// trust these are strings, not null.
 		$args['category'] = (string) $args['category'];
 		$args['search']   = (string) $args['search'];
+		$args['location'] = (string) $args['location'];
 
 		$related_to = ! empty( $args['related_to'] ) ? (int) $args['related_to'] : 0;
 
@@ -140,6 +143,20 @@ class Events_Repository {
 				'value'   => \current_time( 'mysql' ),
 				'compare' => 'upcoming' === $args['show'] ? '>=' : '<',
 				'type'    => 'DATETIME',
+			);
+		}
+
+		// Exact match, not LIKE: the value comes from the /filters route's
+		// list of locations actually in use, so it is always a complete
+		// stored value — a substring match would let "Kandy" also match
+		// "Kandy City Centre" and blur two distinct options together.
+		// Applied server-side like category, so it filters the whole result
+		// set and pagination counts stay honest.
+		if ( '' !== $args['location'] ) {
+			$meta_query['location_clause'] = array(
+				'key'     => 'es_location',
+				'value'   => $args['location'],
+				'compare' => '=',
 			);
 		}
 
