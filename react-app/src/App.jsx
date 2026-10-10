@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useEvents } from './hooks/useEvents.js';
+import { useStatusTimer } from './hooks/useStatusTimer.js';
 import EventFilters from './components/EventFilters.jsx';
 import EventsGrid from './components/EventsGrid.jsx';
 import EventHero from './components/EventHero.jsx';
@@ -35,6 +36,12 @@ export default function App({ config, initialData }) {
   // The event open in the details modal, if any. Held here rather than in
   // EventsGrid because the hero opens the same modal.
   const [activeEvent, setActiveEvent] = useState(null);
+
+  // Keeps "Ongoing" badges current on a page left open — see
+  // useStatusTimer.js. The hero is included even while hidden: harmless,
+  // and it means the timer doesn't need to know about showHero.
+  const onScreen = useMemo(() => (hero ? [hero, ...events] : events), [hero, events]);
+  useStatusTimer(onScreen);
 
   // This instance's own container, not window.scrollTo(0, 0) — another
   // instance of the shortcode could be on the same page, and scrolling

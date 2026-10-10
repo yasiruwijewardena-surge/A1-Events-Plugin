@@ -115,9 +115,9 @@ export function normalizeEvent(raw, timeZone) {
  * which the strict start < end check below rules out: with no end time
  * there's no window to be inside.
  *
- * Evaluated at render time, so a page left open doesn't flip a card to
- * ongoing on its own; the next render (any filter, search, or page
- * change) or reload picks it up.
+ * Evaluated at render time against the real clock. A page left open
+ * stays current because useStatusTimer() re-renders the listing at each
+ * moment this answer can change — see nextStatusChange() below.
  *
  * @param {object} event A normalised event.
  * @param {number} [now] Timestamp to test against; defaults to now.
@@ -131,6 +131,35 @@ export function isOngoing(event, now = Date.now()) {
   const end = endsAt.getTime();
 
   return start < end && start <= now && now <= end;
+}
+
+/**
+ * The next moment, after `now`, at which isOngoing() would give a
+ * different answer for any of these events: a start not yet reached, or
+ * the instant just past an end not yet reached (isOngoing() treats the
+ * end itself as still ongoing). Events that can never be ongoing are
+ * skipped, by the same rules isOngoing() applies.
+ *
+ * @param {object[]} events Normalised events.
+ * @param {number} [now] Timestamp; defaults to now.
+ * @returns {number|null} Timestamp, or null if nothing will change.
+ */
+export function nextStatusChange(events, now = Date.now()) {
+  let next = null;
+
+  for (const { startDate, endsAt, status } of events) {
+    if (status !== 'scheduled' || !startDate || !endsAt) continue;
+
+    const start = startDate.getTime();
+    const end = endsAt.getTime();
+    if (start >= end) continue;
+
+    for (const moment of [start, end + 1]) {
+      if (moment > now && (next === null || moment < next)) next = moment;
+    }
+  }
+
+  return next;
 }
 
 function resolveTimeZone(timeZone) {

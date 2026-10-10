@@ -157,9 +157,19 @@ its activation hook.
 
 The browser gets `ends_at` too, so `isOngoing()` in `normalizeEvent.js`
 applies exactly the same rule. Cancelled and postponed events are never
-shown as ongoing. The badge is worked out when the listing renders, so a
-page left open doesn't switch a card to "Ongoing" by itself; the next
-filter change or reload does.
+shown as ongoing.
+
+**Badges stay current on a page left open.** `useStatusTimer()` sets
+one timer per shortcode instance, for the next moment any badge on
+screen should appear or disappear (`nextStatusChange()`), then
+re-renders and sets the next one. It doesn't poll: with nothing about to
+change, no timer runs. The timer only triggers a re-render, and
+`isOngoing()` checks the real clock each time, so a timer that fires
+late (background tabs throttle timers, a laptop can sleep through one)
+only delays the update and can't make it wrong. When an event ends while
+the page is open, its card stays and just loses the badge, rather than
+the grid rearranging under the reader. The next filter change or reload
+drops it, because the server lists events by end time.
 
 Because ongoing events start earlier than upcoming ones, they sort to
 the top of the listing, which is where something happening now belongs.
