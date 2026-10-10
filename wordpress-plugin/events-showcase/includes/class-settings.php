@@ -668,7 +668,7 @@ class Settings {
 			array(
 				'attribute'   => 'show',
 				'default'     => (string) self::get( 'default_show' ),
-				'description' => \__( 'upcoming, past, or all.', 'events-showcase' ),
+				'description' => \__( 'upcoming, past, or all. Upcoming includes events that are happening now (shown with an Ongoing badge) until they end.', 'events-showcase' ),
 			),
 			array(
 				'attribute'   => 'layout',

@@ -16,6 +16,26 @@ defined( 'ABSPATH' ) || exit;
 class Post_Type {
 
 	/**
+	 * Derived meta key holding when an event ends, in the same naive
+	 * "Y-m-d H:i:s" site-local format as es_start_datetime. Never edited
+	 * directly — see sync_ends_at(). Underscore-prefixed so WordPress
+	 * hides it from the Custom Fields box.
+	 */
+	const ENDS_AT_KEY = '_es_ends_at';
+
+	/**
+	 * The meta keys ends_at() depends on. A change to any of them
+	 * recalculates ENDS_AT_KEY.
+	 */
+	const ENDS_AT_SOURCES = array( 'es_start_datetime', 'es_end_datetime', 'es_all_day' );
+
+	/**
+	 * Option recording that every existing event has ENDS_AT_KEY filled
+	 * in — see maybe_backfill_ends_at().
+	 */
+	const ENDS_AT_BACKFILL_OPTION = 'events_showcase_ends_at_backfilled';
+
+	/**
 	 * Wires registration to `init`.
 	 */
 	public function __construct() {
@@ -24,6 +44,15 @@ class Post_Type {
 		// Dynamic for the same reason as every other save_post_{post_type}
 		// hook in this plugin: Post_Type::post_type() is filterable.
 		\add_action( 'save_post_' . self::post_type(), array( $this, 'backfill_start_datetime' ) );
+
+		// Meta hooks rather than save_post: they fire whichever UI or API
+		// wrote the value — the meta box, ACF (which saves after
+		// save_post_{post_type} has already run), the REST API, WP-CLI —
+		// so ENDS_AT_KEY can't drift from the fields it's derived from.
+		\add_action( 'added_post_meta', array( $this, 'sync_ends_at_on_meta_change' ), 10, 3 );
+		\add_action( 'updated_post_meta', array( $this, 'sync_ends_at_on_meta_change' ), 10, 3 );
+		\add_action( 'deleted_post_meta', array( $this, 'sync_ends_at_on_meta_change' ), 10, 3 );
+		\add_action( 'init', array( $this, 'maybe_backfill_ends_at' ), 20 );
 
 		// A star column on All Events, so whoever manages content can see
 		// which events are featured without opening each one.
@@ -277,6 +306,127 @@ class Post_Type {
 		// local time — the same convention es_start_datetime itself uses
 		// (see Events_Repository::iso8601()) — so no conversion is needed.
 		\update_post_meta( $post_id, 'es_start_datetime', $post->post_date );
+	}
+
+	/**
+	 * When an event ends: the single definition every "upcoming / ongoing
+	 * / past" decision in the plugin is made from.
+	 *
+	 * - An end date and time, if one is set.
+	 * - An all-day event runs to the end of its last day (the end date's
+	 *   day if set, otherwise the start date's) — a whole-day festival
+	 *   isn't over at 00:00 on the morning it begins.
+	 * - Otherwise there's nothing to go on but the start time, so the
+	 *   event is treated as over once it starts, which is how the plugin
+	 *   always behaved for events without an end.
+	 *
+	 * Takes and returns naive "Y-m-d H:i:s" site-local strings, the format
+	 * the event fields are stored in. Pure string work — no timezone
+	 * conversion is needed because every value is in the same zone.
+	 *
+	 * @param string|null $start   es_start_datetime.
+	 * @param string|null $end     es_end_datetime.
+	 * @param bool        $all_day es_all_day.
+	 * @return string|null Null only when there is no start date at all.
+	 */
+	public static function ends_at( ?string $start, ?string $end, bool $all_day ): ?string {
+		$start = (string) $start;
+		$end   = (string) $end;
+
+		// An end before the start is a data-entry slip, not an event that
+		// ends before it begins; fall back to the start rather than
+		// filing a still-to-come event under "past".
+		if ( '' !== $end && '' !== $start && $end < $start ) {
+			$end = '';
+		}
+
+		if ( $all_day ) {
+			$day = '' !== $end ? $end : $start;
+			return '' !== $day ? \substr( $day, 0, 10 ) . ' 23:59:59' : null;
+		}
+
+		if ( '' !== $end ) {
+			return $end;
+		}
+
+		return '' !== $start ? $start : null;
+	}
+
+	/**
+	 * Recalculates ENDS_AT_KEY when one of its source fields changes.
+	 *
+	 * @param int|int[] $meta_ids  Meta ID(s) — unused.
+	 * @param int       $object_id Post ID.
+	 * @param string    $meta_key  Meta key that changed.
+	 * @return void
+	 */
+	public function sync_ends_at_on_meta_change( $meta_ids, $object_id, $meta_key ): void {
+		if ( ! \in_array( $meta_key, self::ENDS_AT_SOURCES, true ) ) {
+			return;
+		}
+
+		if ( self::post_type() !== \get_post_type( $object_id ) ) {
+			return;
+		}
+
+		self::sync_ends_at( (int) $object_id );
+	}
+
+	/**
+	 * Writes (or clears) ENDS_AT_KEY for one event from its current
+	 * field values. Public and static so the backfill and anything else
+	 * can reuse it.
+	 *
+	 * @param int $post_id Event post ID.
+	 * @return void
+	 */
+	public static function sync_ends_at( int $post_id ): void {
+		$ends_at = self::ends_at(
+			\get_post_meta( $post_id, 'es_start_datetime', true ) ?: null,
+			\get_post_meta( $post_id, 'es_end_datetime', true ) ?: null,
+			\rest_sanitize_boolean( \get_post_meta( $post_id, 'es_all_day', true ) )
+		);
+
+		if ( null === $ends_at ) {
+			\delete_post_meta( $post_id, self::ENDS_AT_KEY );
+			return;
+		}
+
+		\update_post_meta( $post_id, self::ENDS_AT_KEY, $ends_at );
+	}
+
+	/**
+	 * Fills in ENDS_AT_KEY for every event that existed before it did,
+	 * once. Listings filter on that key, so an event without it would
+	 * silently drop out of both "upcoming" and "past".
+	 *
+	 * Runs on init rather than only on activation: updating a plugin by
+	 * replacing its files (how this one is deployed) doesn't fire the
+	 * activation hook. The option makes every later request a single
+	 * autoloaded lookup.
+	 *
+	 * @return void
+	 */
+	public function maybe_backfill_ends_at(): void {
+		if ( \get_option( self::ENDS_AT_BACKFILL_OPTION ) ) {
+			return;
+		}
+
+		$post_ids = \get_posts(
+			array(
+				'post_type'        => self::post_type(),
+				'post_status'      => 'any',
+				'numberposts'      => -1,
+				'fields'           => 'ids',
+				'suppress_filters' => true,
+			)
+		);
+
+		foreach ( $post_ids as $post_id ) {
+			self::sync_ends_at( (int) $post_id );
+		}
+
+		\update_option( self::ENDS_AT_BACKFILL_OPTION, 1, true );
 	}
 
 	/**

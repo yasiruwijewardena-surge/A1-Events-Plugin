@@ -145,9 +145,15 @@ class Events_Repository {
 		// isn't worth it for a "related events" strip.
 		$order = 'past' === $args['show'] ? 'DESC' : 'ASC';
 
+		// Split on when an event *ends*, not when it starts, so an event
+		// that's under way counts as upcoming (and shows an "Ongoing"
+		// badge in the browser) until it's actually over, and never
+		// appears under "past" while it's still happening. The end time is
+		// the derived Post_Type::ENDS_AT_KEY — see Post_Type::ends_at() for
+		// how all-day events and events without an end are handled.
 		if ( 'all' !== $args['show'] ) {
 			$meta_query['date_clause'] = array(
-				'key'     => 'es_start_datetime',
+				'key'     => Post_Type::ENDS_AT_KEY,
 				'value'   => \current_time( 'mysql' ),
 				'compare' => 'upcoming' === $args['show'] ? '>=' : '<',
 				'type'    => 'DATETIME',
@@ -311,8 +317,8 @@ class Events_Repository {
 
 		// The cache key already hashes $args, so 'show' is covered like
 		// every other parameter — but unlike category/search, an
-		// upcoming/past split is time-based: an event can cross from
-		// upcoming to past without any save_post/delete/term-change firing
+		// upcoming/past split is time-based: an event can end, crossing
+		// from upcoming to past, without any save_post/delete/term-change firing
 		// to bust the cache. Worst case it lingers on the wrong side of
 		// the split for up to CACHE_TTL (300s) after it crosses. Accepted
 		// as-is — a version-bump-on-every-request cache would defeat the
@@ -433,6 +439,16 @@ class Events_Repository {
 			'content'        => \wp_kses_post( \wpautop( $post->post_content ) ),
 			'start_datetime' => $this->iso8601( $this->meta( $post->ID, 'es_start_datetime' ) ),
 			'end_datetime'   => $this->iso8601( $this->meta( $post->ID, 'es_end_datetime' ) ),
+			// When the event is over, by the same rule the upcoming/past
+			// query uses — the browser compares this against the clock to
+			// show an "Ongoing" badge, rather than re-deriving the rule.
+			'ends_at'        => $this->iso8601(
+				Post_Type::ends_at(
+					$this->meta( $post->ID, 'es_start_datetime' ),
+					$this->meta( $post->ID, 'es_end_datetime' ),
+					$this->boolean_meta( $post->ID, 'es_all_day' )
+				)
+			),
 			'venue'          => $this->meta( $post->ID, 'es_venue_name' ),
 			'location'       => $this->meta( $post->ID, 'es_location' ),
 			'categories'     => $this->categories( $post->ID ),

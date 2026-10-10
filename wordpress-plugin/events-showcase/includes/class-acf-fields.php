@@ -67,6 +67,7 @@ class ACF_Fields {
 						'name'           => 'es_end_datetime',
 						'type'           => 'date_time_picker',
 						'required'       => 0,
+						'instructions'   => __( 'Events stay in the upcoming list, with an "Ongoing" badge, until they end. Without an end time, an event counts as over once it starts.', 'events-showcase' ),
 						'display_format' => 'Y-m-d H:i:s',
 						'return_format'  => 'Y-m-d H:i:s',
 					),

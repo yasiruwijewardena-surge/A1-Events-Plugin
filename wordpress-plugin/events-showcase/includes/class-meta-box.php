@@ -113,6 +113,9 @@ class Meta_Box {
 							name="es_end_datetime"
 							value="<?php echo esc_attr( $end ); ?>"
 						>
+						<p class="description">
+							<?php esc_html_e( 'Events stay in the upcoming list, with an "Ongoing" badge, until they end. Without an end time, an event counts as over once it starts.', 'events-showcase' ); ?>
+						</p>
 					</td>
 				</tr>
 				<tr>

@@ -98,6 +98,10 @@
   --es-danger-contrast: #ffffff;
   --es-warning: #a16207;
   --es-warning-contrast: #ffffff;
+  /* "Ongoing" — an event that's happening right now. Green-700, which
+   * clears 4.5:1 against white like the two above. */
+  --es-live: #15803d;
+  --es-live-contrast: #ffffff;
 
   /* ── Surfaces ────────────────────────────────────────────────── */
   /* Transparent by default: the component sits on the theme's background
@@ -597,6 +601,41 @@
   background: var(--es-warning);
 }
 
+/* The dot says "live" at a glance, but it's decoration on top of the
+ * word, not a replacement for it — the pill still reads "Ongoing". */
+.events-showcase .event-card__status--ongoing {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--es-live-contrast);
+  background: var(--es-live);
+}
+
+.events-showcase .event-card__status--ongoing::before {
+  content: '';
+  width: 0.45em;
+  height: 0.45em;
+  border-radius: 50%;
+  background: currentColor;
+  animation: es-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes es-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .events-showcase .event-card__status--ongoing::before {
+    animation: none;
+  }
+}
+
 /* Explicit color + font-family, not left to inherit: this is an <h3>,
  * and themes routinely style headings directly (Divi's own global reset
  * sets a flat `h1..h6{color:#333}`, and Divi Builder rows/modules with a
@@ -1020,6 +1059,11 @@
 .events-showcase .event-modal__notice--postponed {
   color: color-mix(in srgb, var(--es-warning) 70%, currentColor);
   background: color-mix(in srgb, var(--es-warning) 12%, transparent);
+}
+
+.events-showcase .event-modal__notice--ongoing {
+  color: color-mix(in srgb, var(--es-live) 75%, currentColor);
+  background: color-mix(in srgb, var(--es-live) 12%, transparent);
 }
 
 /* Same reasoning as .event-card__title above — an explicit color beats

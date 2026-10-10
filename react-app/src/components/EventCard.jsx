@@ -1,4 +1,5 @@
 import { PinIcon, TagIcon } from './Icons.jsx';
+import { isOngoing } from '../utils/normalizeEvent.js';
 
 // A single event card: inset thumbnail, calendar date tile, then the
 // location / title / excerpt / category stack beside it. Icons come from
@@ -25,11 +26,12 @@ export default function EventCard({ event, onSelect }) {
 
   const isCancelled = event.status === 'cancelled';
   const isPostponed = event.status === 'postponed';
+  const ongoing = isOngoing(event);
   // Only non-scheduled events get anything over the image now that the
   // category has moved down to the card footer. That makes the overlay
   // meaningful — a badge on the photo means something has changed —
   // rather than something every card carries regardless.
-  const hasStatusBadge = isCancelled || isPostponed;
+  const hasStatusBadge = isCancelled || isPostponed || ongoing;
 
   return (
     <article className="event-card">
@@ -78,6 +80,9 @@ export default function EventCard({ event, onSelect }) {
               )}
               {isPostponed && (
                 <span className="event-card__status event-card__status--postponed">Postponed</span>
+              )}
+              {ongoing && (
+                <span className="event-card__status event-card__status--ongoing">Ongoing</span>
               )}
             </p>
           )}

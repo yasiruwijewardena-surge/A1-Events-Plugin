@@ -1,4 +1,5 @@
 import { PinIcon, StarIcon, TagIcon } from './Icons.jsx';
+import { isOngoing } from '../utils/normalizeEvent.js';
 
 // The featured "main event" above the grid, shown when the shortcode has
 // hero="true" and an upcoming featured event exists (the server picks it —
@@ -17,6 +18,7 @@ export default function EventHero({ event, onSelect }) {
 
   const isCancelled = event.status === 'cancelled';
   const isPostponed = event.status === 'postponed';
+  const ongoing = isOngoing(event);
   const place = [event.venue, event.location].filter(Boolean).join(', ');
 
   return (
@@ -58,6 +60,9 @@ export default function EventHero({ event, onSelect }) {
             )}
             {isPostponed && (
               <span className="event-card__status event-card__status--postponed">Postponed</span>
+            )}
+            {ongoing && (
+              <span className="event-card__status event-card__status--ongoing">Ongoing</span>
             )}
           </p>
 

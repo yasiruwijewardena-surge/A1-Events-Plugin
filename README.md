@@ -131,6 +131,41 @@ Two consequences worth knowing:
 > the old "everything" behaviour, or `show="past"` for a most-recent-
 > first archive view.
 
+### Upcoming, ongoing and past
+
+Listings split on when an event **ends**, not when it starts, so an
+event that's under way stays in the upcoming listing with an
+**Ongoing** badge until it's over. It never shows up under past while
+it's still happening.
+
+"When it ends" has one definition, `Post_Type::ends_at()`:
+
+| Event | Ends at |
+|---|---|
+| Has an end date and time | That end |
+| All-day | 23:59:59 on its last day (the end date if set, otherwise the start date) |
+| No end time | Its start. With no end, there's no window to be "ongoing" in, which is also how these events behaved before |
+| End earlier than start | Treated as a typo and the start is used, so the event isn't filed under past by mistake |
+
+That value is stored in a hidden `_es_ends_at` meta key and kept in sync
+by `added/updated/deleted_post_meta` hooks on the three fields it comes
+from. Those hooks fire whichever UI or API wrote the value (the meta
+box, ACF, REST, WP-CLI), so it can't drift. Upcoming/past is a single
+comparison on it. Existing events are backfilled once, on the first
+request after updating, because replacing a plugin's files doesn't fire
+its activation hook.
+
+The browser gets `ends_at` too, so `isOngoing()` in `normalizeEvent.js`
+applies exactly the same rule. Cancelled and postponed events are never
+shown as ongoing. The badge is worked out when the listing renders, so a
+page left open doesn't switch a card to "Ongoing" by itself; the next
+filter change or reload does.
+
+Because ongoing events start earlier than upcoming ones, they sort to
+the top of the listing, which is where something happening now belongs.
+Events with the same start time are ordered by post ID, so the order is
+stable from one request to the next.
+
 ## Shortcode usage
 
 ```
@@ -205,6 +240,7 @@ instances on the same page can be themed independently.
 | `--es-border` | 15% of `currentColor` | All hairlines |
 | `--es-accent` / `--es-accent-contrast` | `#2563eb` / `#fff` | Date tile, links, focus rings, primary button |
 | `--es-danger` / `--es-warning` (+ `-contrast`) | `#b91c1c` / `#a16207` | Cancelled and postponed styling, error banner |
+| `--es-live` (+ `-contrast`) | `#15803d` | The Ongoing badge and the popup's "happening now" notice |
 | `--es-surface` / `--es-surface-raised` | `transparent` / 4% tint | Ambient surfaces |
 | `--es-card-surface` | 3% tint over `Canvas` | The card panel |
 | `--es-control-surface` | 6% tint over `Canvas` | Inputs and selects |
@@ -255,7 +291,7 @@ glance which events are featured.
 
 Two ways to use it:
 
-- **`hero="true"`**: the soonest *upcoming* featured event is shown as
+- **`hero="true"`**: the soonest featured event that hasn't ended is shown as
   a large hero card above the grid: photo beside the text from 768px,
   stacked below that, with the full date and time, venue, excerpt and a
   "View details" cue. Clicking it opens the same details modal as a card.
@@ -281,6 +317,8 @@ How the hero behaves, and why:
 - **No featured event, no hero.** It doesn't fall back to "the next
   event": a hero that appears without anyone choosing it isn't
   featuring anything. The listing just renders normally.
+- **An ongoing featured event stays the hero** (with an Ongoing badge)
+  until it ends, and then the next featured event takes over by itself.
 - **Ignored with `related="true"` and `show="past"`.** A "next headline
   event" banner makes no sense on a related strip or a past-events
   archive.
