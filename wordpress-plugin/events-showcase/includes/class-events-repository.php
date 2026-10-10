@@ -189,7 +189,14 @@ class Events_Repository {
 			'paged'          => max( 1, (int) $args['page'] ),
 			's'              => \sanitize_text_field( (string) $args['search'] ),
 			'meta_query'     => $meta_query, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
-			'orderby'        => array( 'start_clause' => $order ),
+			// ID as a tie-break: two events starting at the same moment
+			// otherwise come back in whatever order the database likes,
+			// which can change between requests — and with hero="true"
+			// that decided which of two featured events got the hero.
+			'orderby'        => array(
+				'start_clause' => $order,
+				'ID'           => $order,
+			),
 		);
 
 		if ( $related_to > 0 ) {
