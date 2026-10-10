@@ -29,6 +29,7 @@ export function normalizeEvent(raw, timeZone) {
 
   const startDate = raw.start_datetime ? new Date(raw.start_datetime) : null;
   const endDate = raw.end_datetime ? new Date(raw.end_datetime) : null;
+  const endsAt = raw.ends_at ? new Date(raw.ends_at) : null;
   const categories = raw.categories || [];
   const allDay = Boolean(raw.all_day);
 
@@ -54,7 +55,12 @@ export function normalizeEvent(raw, timeZone) {
     thumbnailHeight: raw.thumbnail?.height || null,
     startDate,
     endDate,
+    // When the event is over — computed by the server (Post_Type::ends_at)
+    // with the same rule its upcoming/past query uses. Used only by
+    // isOngoing() below.
+    endsAt,
     allDay,
+    featured: Boolean(raw.featured),
     // Raw ISO string kept alongside the parsed Date so the card can put a
     // machine-readable datetime on its <time> element without having to
     // re-serialise (and risk shifting) the value.
@@ -98,6 +104,64 @@ export function normalizeEvent(raw, timeZone) {
  * and throws a RangeError on older ones. Showing a slightly wrong time
  * beats throwing during render.
  */
+/**
+ * Whether an event is happening right now: it has started and hasn't yet
+ * reached the end the server computed for it.
+ *
+ * Compares instants, not wall-clock dates, so the visitor's own timezone
+ * doesn't matter. Cancelled and postponed events are never "ongoing" —
+ * telling someone a cancelled event is happening now would be worse than
+ * saying nothing. An event without an end has endsAt equal to its start,
+ * which the strict start < end check below rules out: with no end time
+ * there's no window to be inside.
+ *
+ * Evaluated at render time against the real clock. A page left open
+ * stays current because useStatusTimer() re-renders the listing at each
+ * moment this answer can change — see nextStatusChange() below.
+ *
+ * @param {object} event A normalised event.
+ * @param {number} [now] Timestamp to test against; defaults to now.
+ * @returns {boolean}
+ */
+export function isOngoing(event, now = Date.now()) {
+  const { startDate, endsAt, status } = event;
+  if (status !== 'scheduled' || !startDate || !endsAt) return false;
+
+  const start = startDate.getTime();
+  const end = endsAt.getTime();
+
+  return start < end && start <= now && now <= end;
+}
+
+/**
+ * The next moment, after `now`, at which isOngoing() would give a
+ * different answer for any of these events: a start not yet reached, or
+ * the instant just past an end not yet reached (isOngoing() treats the
+ * end itself as still ongoing). Events that can never be ongoing are
+ * skipped, by the same rules isOngoing() applies.
+ *
+ * @param {object[]} events Normalised events.
+ * @param {number} [now] Timestamp; defaults to now.
+ * @returns {number|null} Timestamp, or null if nothing will change.
+ */
+export function nextStatusChange(events, now = Date.now()) {
+  let next = null;
+
+  for (const { startDate, endsAt, status } of events) {
+    if (status !== 'scheduled' || !startDate || !endsAt) continue;
+
+    const start = startDate.getTime();
+    const end = endsAt.getTime();
+    if (start >= end) continue;
+
+    for (const moment of [start, end + 1]) {
+      if (moment > now && (next === null || moment < next)) next = moment;
+    }
+  }
+
+  return next;
+}
+
 function resolveTimeZone(timeZone) {
   if (!timeZone) return undefined;
 

@@ -67,6 +67,7 @@ class ACF_Fields {
 						'name'           => 'es_end_datetime',
 						'type'           => 'date_time_picker',
 						'required'       => 0,
+						'instructions'   => __( 'Events stay in the upcoming list, with an "Ongoing" badge, until they end. Without an end time, an event counts as over once it starts.', 'events-showcase' ),
 						'display_format' => 'Y-m-d H:i:s',
 						'return_format'  => 'Y-m-d H:i:s',
 					),
@@ -97,6 +98,14 @@ class ACF_Fields {
 						'type'         => 'true_false',
 						'ui'           => 1,
 						'instructions' => __( 'Hides the time and shows only the date, everywhere the event appears.', 'events-showcase' ),
+					),
+					array(
+						'key'          => 'field_es_featured',
+						'label'        => __( 'Featured Event', 'events-showcase' ),
+						'name'         => 'es_featured',
+						'type'         => 'true_false',
+						'ui'           => 1,
+						'instructions' => __( 'The soonest upcoming featured event is shown as the large hero card on listings using hero="true", and featured events are what featured="only" lists.', 'events-showcase' ),
 					),
 					array(
 						'key'           => 'field_es_status',

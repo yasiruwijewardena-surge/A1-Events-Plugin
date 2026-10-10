@@ -85,12 +85,18 @@ class Shortcode {
 
 		$args = $this->parse_atts( $atts );
 
+		$hero = $this->resolve_hero( $args );
+
 		$query_args = array(
 			'category' => $args['category'],
 			'per_page' => $args['per_page'],
 			'page'     => 1,
 			'search'   => $args['search'],
 			'show'     => $args['show'],
+			'featured' => $args['featured'],
+			// The hero is already on screen above the grid; listing it
+			// again as the first card would just repeat it.
+			'exclude'  => $hero ? (int) $hero['id'] : 0,
 		);
 
 		// Only resolved (and only added to the query) when related="true" —
@@ -119,7 +125,7 @@ class Shortcode {
 			<script type="application/json" id="<?php echo esc_attr( $payload_id ); ?>">
 				<?php
 				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- payload_json() already ran this through wp_json_encode(); it is not raw.
-				echo $this->payload_json( $result );
+				echo $this->payload_json( $result, $hero );
 				?>
 			</script>
 			<div
@@ -130,6 +136,7 @@ class Shortcode {
 				data-category="<?php echo esc_attr( $args['category'] ); ?>"
 				data-search="<?php echo esc_attr( $args['search'] ); ?>"
 				data-show="<?php echo esc_attr( $args['show'] ); ?>"
+				data-featured="<?php echo esc_attr( $args['featured'] ); ?>"
 				data-layout="<?php echo esc_attr( $args['layout'] ); ?>"
 				data-columns="<?php echo esc_attr( $args['columns'] ); ?>"
 				<?php // Always printed (not only when false) so main.jsx never has to guess what an absent attribute means. ?>
@@ -158,7 +165,7 @@ class Shortcode {
 			></div>
 			<?php
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- fallback_html() escapes every value itself; nothing raw reaches this echo.
-			echo $this->fallback_html( $result['events'] );
+			echo $this->fallback_html( $hero ? array_merge( array( $hero ), $result['events'] ) : $result['events'] );
 			?>
 		</div>
 		<?php
@@ -177,7 +184,7 @@ class Shortcode {
 	 * default if nothing's been saved).
 	 *
 	 * @param array $atts Raw shortcode attributes.
-	 * @return array{category: string, per_page: int, search: string, show: string, layout: string, columns: string, filters: bool, related: bool, class: string}
+	 * @return array{category: string, per_page: int, search: string, show: string, layout: string, columns: string, filters: bool, related: bool, hero: bool, featured: string, class: string}
 	 */
 	private function parse_atts( array $atts ): array {
 		// Read straight off the raw, caller-supplied $atts — before
@@ -204,6 +211,8 @@ class Shortcode {
 				// filters="true" still wins.
 				'filters'  => $related_requested ? 'false' : 'true',
 				'related'  => 'false',
+				'hero'     => 'false',
+				'featured' => '',
 				// Escape hatch for theming. The stylesheet's own selectors
 				// are deliberately specific so they beat a host theme's
 				// rules, which means a themer can't win with a bare class;
@@ -263,6 +272,10 @@ class Shortcode {
 			// spell "off" a few different ways.
 			'filters'  => \filter_var( $atts['filters'], FILTER_VALIDATE_BOOLEAN ),
 			'related'  => \filter_var( $atts['related'], FILTER_VALIDATE_BOOLEAN ),
+			'hero'     => \filter_var( $atts['hero'], FILTER_VALIDATE_BOOLEAN ),
+			// featured="only" is the documented spelling; "true" is
+			// accepted too because it's what people will guess first.
+			'featured' => \in_array( \sanitize_key( (string) $atts['featured'] ), array( 'only', 'true', '1', 'yes' ), true ) ? 'only' : '',
 			'class'    => \implode( ' ', $classes ),
 		);
 	}
@@ -292,16 +305,51 @@ class Shortcode {
 	}
 
 	/**
+	 * Finds the event to show as this instance's hero: the soonest
+	 * upcoming featured event within the instance's own fixed filters.
+	 *
+	 * Server-side only, resolved once per page load, and sent to React in
+	 * the inline payload — it's a page-level choice, not something a
+	 * visitor's filtering should re-query. Returns null (no hero, plain
+	 * listing) when hero is off, when nothing qualifies, and in two modes
+	 * where a "next featured event" banner makes no sense: a related strip
+	 * and a past-events archive.
+	 *
+	 * @param array $args Parsed attributes (see parse_atts()).
+	 * @return array|null A normalised event, or null.
+	 */
+	private function resolve_hero( array $args ): ?array {
+		if ( ! $args['hero'] || $args['related'] || 'past' === $args['show'] ) {
+			return null;
+		}
+
+		$result = $this->repository->get_events(
+			array(
+				'category' => $args['category'],
+				'search'   => $args['search'],
+				'featured' => 'only',
+				'per_page' => 1,
+				'page'     => 1,
+				'show'     => 'upcoming',
+			)
+		);
+
+		return $result['events'][0] ?? null;
+	}
+
+	/**
 	 * Encodes the repository result for the inline `<script>` payload.
 	 *
-	 * @param array $result Events_Repository::get_events() return value.
+	 * @param array      $result Events_Repository::get_events() return value.
+	 * @param array|null $hero   The hero event (see resolve_hero()), if any.
 	 * @return string
 	 */
-	private function payload_json( array $result ): string {
+	private function payload_json( array $result, ?array $hero = null ): string {
 		$payload = array(
 			'events' => $result['events'],
 			'total'  => $result['total'],
 			'pages'  => $result['pages'],
+			'hero'   => $hero,
 		);
 
 		// JSON_HEX_TAG escapes "<" and ">" as their \u escape sequences —

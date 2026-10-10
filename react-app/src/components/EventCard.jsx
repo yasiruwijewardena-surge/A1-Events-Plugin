@@ -1,39 +1,9 @@
-// A single event card: inset thumbnail, calendar date tile, then the
-// location / title / excerpt / category stack beside it.
-//
-// Icons are inlined SVG rather than an icon font or a package — two
-// glyphs don't justify a dependency, and inlining means they inherit
-// currentColor and can't arrive after the text they belong to. Both are
-// aria-hidden: each sits next to a text label that already says the same
-// thing.
-function PinIcon() {
-  return (
-    <svg className="event-card__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path
-        d="M8 1.5a4.5 4.5 0 0 0-4.5 4.5c0 3.4 4.5 8.5 4.5 8.5s4.5-5.1 4.5-8.5A4.5 4.5 0 0 0 8 1.5Z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.3"
-      />
-      <circle cx="8" cy="6" r="1.7" fill="none" stroke="currentColor" strokeWidth="1.3" />
-    </svg>
-  );
-}
+import { PinIcon, TagIcon } from './Icons.jsx';
+import { isOngoing } from '../utils/normalizeEvent.js';
 
-function TagIcon() {
-  return (
-    <svg className="event-card__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path
-        d="M2.5 7.3V2.5h4.8l6.2 6.2-4.8 4.8L2.5 7.3Z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinejoin="round"
-      />
-      <circle cx="5.4" cy="5.4" r="1" fill="currentColor" />
-    </svg>
-  );
-}
+// A single event card: inset thumbnail, calendar date tile, then the
+// location / title / excerpt / category stack beside it. Icons come from
+// Icons.jsx, shared with EventHero.
 
 export default function EventCard({ event, onSelect }) {
   // The whole card is one link, not just the title — a card is a single
@@ -56,11 +26,12 @@ export default function EventCard({ event, onSelect }) {
 
   const isCancelled = event.status === 'cancelled';
   const isPostponed = event.status === 'postponed';
+  const ongoing = isOngoing(event);
   // Only non-scheduled events get anything over the image now that the
   // category has moved down to the card footer. That makes the overlay
   // meaningful — a badge on the photo means something has changed —
   // rather than something every card carries regardless.
-  const hasStatusBadge = isCancelled || isPostponed;
+  const hasStatusBadge = isCancelled || isPostponed || ongoing;
 
   return (
     <article className="event-card">
@@ -110,6 +81,9 @@ export default function EventCard({ event, onSelect }) {
               {isPostponed && (
                 <span className="event-card__status event-card__status--postponed">Postponed</span>
               )}
+              {ongoing && (
+                <span className="event-card__status event-card__status--ongoing">Ongoing</span>
+              )}
             </p>
           )}
         </div>
@@ -136,7 +110,7 @@ export default function EventCard({ event, onSelect }) {
           <div className="event-card__content">
             {event.location && (
               <p className="event-card__location">
-                <PinIcon />
+                <PinIcon className="event-card__icon" />
                 {event.location}
               </p>
             )}
@@ -146,7 +120,7 @@ export default function EventCard({ event, onSelect }) {
                 text node, not markup. Clamped to two lines in CSS. */}
             {event.excerpt && <p className="event-card__excerpt">{event.excerpt}</p>}
             <p className="event-card__category">
-              <TagIcon />
+              <TagIcon className="event-card__icon" />
               {event.category}
               {event.allDay ? ' · All day' : ''}
             </p>

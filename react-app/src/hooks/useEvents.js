@@ -12,8 +12,16 @@ import { normalizeEvent } from '../utils/normalizeEvent.js';
  * whichever page happens to be loaded, and lets the dropdowns offer every
  * option in use rather than only those on the current page.
  *
- * @param {{restUrl: string, perPage: number, initialCategory: string, initialSearch: string, show: string}} config
- * @param {{events: object[], total: number, pages: number}|null} initialData
+ * The hero (a featured event shown above the grid) is resolved once by
+ * the server and arrives in the inline payload; it is never refetched. It
+ * shows only while the listing is what the page was configured to show —
+ * page 1, no visitor-chosen category, location or search. Once a visitor
+ * narrows the listing, the hero steps aside and that event goes back into
+ * the results like any other, so what's on screen always matches the
+ * filters they chose.
+ *
+ * @param {{restUrl: string, perPage: number, initialCategory: string, initialSearch: string, show: string, featured: string}} config
+ * @param {{events: object[], total: number, pages: number, hero?: object|null}|null} initialData
  *   Server-rendered payload from the shortcode's inline <script>, if any.
  *   When present, the first render skips its own fetch and hydrates from
  *   this instead — see main.jsx.
@@ -34,6 +42,9 @@ export function useEvents(config, initialData) {
     location: '',
   });
   const [search, setSearch] = useState(config.initialSearch || '');
+  const [hero] = useState(() =>
+    initialData?.hero ? normalizeEvent(initialData.hero, config.timeZone) : null,
+  );
   const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState(null);
   const [categories, setCategories] = useState([]);
@@ -84,6 +95,21 @@ export function useEvents(config, initialData) {
     };
   }, [config.restUrl, config.filters]);
 
+  // Compared against the configured starting values, not against empty: a
+  // shortcode with category="workshop" starts on that category, and that
+  // is not the visitor narrowing anything. debouncedSearch (not search) so
+  // the hero leaves in the same render as the fetch it belongs to fires,
+  // rather than a beat before the grid updates.
+  const isNarrowed =
+    filters.category !== (config.initialCategory || '') ||
+    filters.location !== '' ||
+    debouncedSearch !== (config.initialSearch || '');
+
+  // Excluded on every page while not narrowed, but only *shown* on page 1:
+  // it's the top of the listing, and page 2 shouldn't repeat it.
+  const excludeId = hero && !isNarrowed ? hero.id : 0;
+  const showHero = Boolean(hero) && !isNarrowed && page === 1;
+
   // Resets to page 1 whenever a server-side query parameter changes, so a
   // new category/location/search doesn't stay stuck on a page number that may no
   // longer exist.
@@ -105,6 +131,8 @@ export function useEvents(config, initialData) {
       category: filters.category,
       location: filters.location,
       search: debouncedSearch,
+      featured: config.featured,
+      exclude: excludeId,
       perPage: config.perPage,
       page,
       show: config.show,
@@ -130,6 +158,8 @@ export function useEvents(config, initialData) {
     config.restUrl,
     config.perPage,
     config.show,
+    config.featured,
+    excludeId,
     filters.category,
     filters.location,
     debouncedSearch,
@@ -155,6 +185,8 @@ export function useEvents(config, initialData) {
     loading,
     error,
     events,
+    hero,
+    showHero,
     filters,
     setFilters,
     search,

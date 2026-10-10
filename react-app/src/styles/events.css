@@ -70,6 +70,9 @@
   --es-eyebrow-size: 0.6875rem;
   --es-date-month-size: 0.75rem;
   --es-date-day-size: 1.75rem;
+  /* Fluid between a phone and a wide desktop, so the hero title is never
+   * a single word per line on mobile nor timid on a 1400px row. */
+  --es-hero-title-size: clamp(1.5rem, 1.15rem + 1.5vw, 2.25rem);
 
   /* ── Colour ──────────────────────────────────────────────────── */
   /* Inherit the theme's own text colour and font rather than asserting
@@ -95,6 +98,10 @@
   --es-danger-contrast: #ffffff;
   --es-warning: #a16207;
   --es-warning-contrast: #ffffff;
+  /* "Ongoing" — an event that's happening right now. Green-700, which
+   * clears 4.5:1 against white like the two above. */
+  --es-live: #15803d;
+  --es-live-contrast: #ffffff;
 
   /* ── Surfaces ────────────────────────────────────────────────── */
   /* Transparent by default: the component sits on the theme's background
@@ -154,6 +161,11 @@
    * card — which buried the title and date under a picture. 16/10 keeps
    * the image the card's anchor without letting it dominate. */
   --es-media-ratio: 16 / 10;
+  /* The hero's photo when stacked (below 768px). Wider than the cards':
+   * at full container width a 16/10 photo pushes the title below the
+   * fold on a phone. From 768px the photo fills its column's height
+   * instead, so this no longer applies there. */
+  --es-hero-media-ratio: 16 / 9;
 
   /* ── Controls ────────────────────────────────────────────────── */
   /* Consistent height across the search input and both selects, so the
@@ -589,6 +601,41 @@
   background: var(--es-warning);
 }
 
+/* The dot says "live" at a glance, but it's decoration on top of the
+ * word, not a replacement for it — the pill still reads "Ongoing". */
+.events-showcase .event-card__status--ongoing {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--es-live-contrast);
+  background: var(--es-live);
+}
+
+.events-showcase .event-card__status--ongoing::before {
+  content: '';
+  width: 0.45em;
+  height: 0.45em;
+  border-radius: 50%;
+  background: currentColor;
+  animation: es-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes es-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .events-showcase .event-card__status--ongoing::before {
+    animation: none;
+  }
+}
+
 /* Explicit color + font-family, not left to inherit: this is an <h3>,
  * and themes routinely style headings directly (Divi's own global reset
  * sets a flat `h1..h6{color:#333}`, and Divi Builder rows/modules with a
@@ -646,6 +693,224 @@
   overflow: hidden;
 }
 
+
+/* -------------------------------------------------------------------
+ * Hero: the featured event above the grid (see EventHero.jsx).
+ *
+ * Built from the card's own vocabulary — same surface, border, inset
+ * photo, radius pair and hover lift — so it reads as the first and most
+ * important item of this listing rather than a banner pasted on top of
+ * it. What makes it the hero is scale and layout: it spans the full
+ * width, sets the photo beside the text from 768px, and carries a
+ * larger title, the full date with time, and an explicit call to action.
+ * ------------------------------------------------------------------- */
+.events-showcase .event-hero {
+  /* .events-showcase__results stacks its children with no gap of its own
+   * (the pager carries its own margin), so the hero brings its own. */
+  margin-bottom: var(--es-gap);
+  padding: var(--es-card-padding);
+  border: 1px solid var(--es-border);
+  border-radius: var(--es-radius);
+  background: var(--es-card-surface);
+  box-shadow: var(--es-shadow);
+  transition: transform var(--es-transition), box-shadow var(--es-transition), border-color var(--es-transition);
+}
+
+.events-showcase .event-hero:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--es-shadow-lift);
+  border-color: color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.events-showcase .event-hero__link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.events-showcase .event-hero__link:focus-visible {
+  outline: 2px solid var(--es-accent);
+  outline-offset: 3px;
+  border-radius: calc(var(--es-radius) - 0.35rem);
+}
+
+.events-showcase .event-hero__link:hover .event-hero__title {
+  text-decoration: underline;
+}
+
+.events-showcase .event-hero__media {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--es-radius-inner);
+}
+
+.events-showcase .event-hero__thumb {
+  width: 100%;
+  aspect-ratio: var(--es-hero-media-ratio);
+  object-fit: cover;
+  background: var(--es-border);
+  transition: transform 0.45s cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+.events-showcase .event-hero:hover .event-hero__thumb {
+  transform: scale(1.03);
+}
+
+.events-showcase .event-hero__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.25rem 0.5rem 0.75rem;
+}
+
+.events-showcase .event-hero__badges {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* A tint of the accent rather than a solid fill: this pill sits on the
+ * card surface, not over a photo, so a tint stays legible here — and a
+ * second solid accent block would compete with the call to action, which
+ * is the one thing on the hero that should read as "press me". */
+.events-showcase .event-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: var(--es-eyebrow-size);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--es-accent);
+  background: color-mix(in srgb, var(--es-accent) 12%, transparent);
+}
+
+.events-showcase .event-hero__date {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--es-accent);
+}
+
+/* Explicit color + font-family for the same reason as .event-card__title:
+ * it's a heading, and host themes style headings directly. */
+.events-showcase .event-hero__title {
+  margin: 0;
+  font-size: var(--es-hero-title-size);
+  font-weight: var(--es-title-weight);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--es-text);
+  font-family: inherit;
+  overflow-wrap: anywhere;
+}
+
+/* Three lines, by the same height-ceiling technique as the card excerpt
+ * (see .event-card__excerpt for why the ceiling is the real constraint
+ * and the clamp is only there for the ellipsis). */
+.events-showcase .event-hero__excerpt {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--es-text-muted);
+  max-height: calc(1.6 * 3 * 1em);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.events-showcase .event-hero__meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  font-size: var(--es-meta-size);
+  font-weight: 500;
+  color: var(--es-text-muted);
+}
+
+.events-showcase .event-hero__meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.events-showcase .event-hero__icon {
+  width: 0.9375em;
+  height: 0.9375em;
+  flex-shrink: 0;
+}
+
+.events-showcase .event-hero__cta {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  padding: 0.7rem 1.2rem;
+  border-radius: var(--es-control-radius);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--es-accent-contrast);
+  background: var(--es-accent);
+  transition: background-color var(--es-transition-fast);
+}
+
+.events-showcase .event-hero:hover .event-hero__cta {
+  background: color-mix(in srgb, var(--es-accent) 85%, black);
+}
+
+.events-showcase .event-hero__cta-arrow {
+  transition: transform var(--es-transition);
+}
+
+.events-showcase .event-hero:hover .event-hero__cta-arrow {
+  transform: translateX(3px);
+}
+
+/* Side by side from 768px: photo left, text right. The photo stops
+ * using a fixed ratio and fills its column's height, so a long title or
+ * excerpt grows the hero downward without leaving a gap under the image;
+ * min-height stops a short text column from squashing it into a strip. */
+@media (min-width: 768px) {
+  .events-showcase .event-hero__link {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 2rem;
+  }
+
+  .events-showcase .event-hero__thumb {
+    height: 100%;
+    min-height: 20rem;
+    aspect-ratio: auto;
+  }
+
+  .events-showcase .event-hero__body {
+    padding: 1.5rem 1.5rem 1.5rem 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .events-showcase .event-hero,
+  .events-showcase .event-hero:hover,
+  .events-showcase .event-hero__thumb,
+  .events-showcase .event-hero:hover .event-hero__thumb,
+  .events-showcase .event-hero__cta-arrow,
+  .events-showcase .event-hero:hover .event-hero__cta-arrow {
+    transform: none;
+    transition: none;
+  }
+}
 
 /* Modal: overlay fade + dialog scale, both cheap enough to run at 60fps
    without a JS animation library. */
@@ -794,6 +1059,11 @@
 .events-showcase .event-modal__notice--postponed {
   color: color-mix(in srgb, var(--es-warning) 70%, currentColor);
   background: color-mix(in srgb, var(--es-warning) 12%, transparent);
+}
+
+.events-showcase .event-modal__notice--ongoing {
+  color: color-mix(in srgb, var(--es-live) 75%, currentColor);
+  background: color-mix(in srgb, var(--es-live) 12%, transparent);
 }
 
 /* Same reasoning as .event-card__title above — an explicit color beats

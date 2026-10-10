@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Events Showcase
  * Description:       Add an interactive events section to any page with the [events_showcase] shortcode: event cards with category and location filters, search, and a popup with full event details. Manage events under Events in the admin menu, and set site-wide defaults under Events → Settings.
- * Version:           1.8.0
+ * Version:           1.9.0
  * Requires at least: 6.2
  * Requires PHP:      8.0
  * Author:            Yasiru Wijewardena
@@ -18,7 +18,7 @@ namespace Events_Showcase;
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'EVENTS_SHOWCASE_VERSION', '1.8.0' );
+define( 'EVENTS_SHOWCASE_VERSION', '1.9.0' );
 define( 'EVENTS_SHOWCASE_DIR', \plugin_dir_path( __FILE__ ) );
 define( 'EVENTS_SHOWCASE_URL', \plugin_dir_url( __FILE__ ) );
 

@@ -81,6 +81,8 @@ class REST_Controller {
 				'page'     => $request->get_param( 'page' ),
 				'search'   => $request->get_param( 'search' ),
 				'location' => $request->get_param( 'location' ),
+				'featured' => $request->get_param( 'featured' ),
+				'exclude'  => $request->get_param( 'exclude' ),
 				'show'     => $request->get_param( 'show' ),
 			)
 		);
@@ -196,6 +198,21 @@ class REST_Controller {
 					// Same bound as search. A location nobody uses just
 					// yields zero results, not an error — same as category.
 					return \is_string( $value ) && \strlen( $value ) <= 200;
+				},
+			),
+			'featured' => array(
+				'type'              => 'string',
+				'required'          => false,
+				'default'           => '',
+				'enum'              => array( '', 'only' ),
+			),
+			'exclude'  => array(
+				'type'              => 'integer',
+				'required'          => false,
+				'default'           => 0,
+				'sanitize_callback' => 'absint',
+				'validate_callback' => static function ( $value ) {
+					return \is_numeric( $value ) && $value >= 0;
 				},
 			),
 			'show'     => array(

@@ -57,6 +57,12 @@ class Events_Repository {
 	 *     @type int      $page       Page number, 1-indexed.
 	 *     @type string   $search     Free-text search term.
 	 *     @type string   $location   Exact es_location value to filter by.
+	 *     @type string   $featured   'only' to list featured events only;
+	 *                                '' (default) for no restriction.
+	 *     @type int      $exclude    Post ID to leave out — the shortcode's
+	 *                                hero event, so it isn't repeated in
+	 *                                the grid beneath it. 0 (default) for
+	 *                                none.
 	 *     @type string   $show       'upcoming' (default), 'past', or 'all'.
 	 *     @type int|null $related_to Post ID to build a "related events"
 	 *                                listing around, or null (default) for
@@ -87,6 +93,8 @@ class Events_Repository {
 				'page'       => 1,
 				'search'     => '',
 				'location'   => '',
+				'featured'   => '',
+				'exclude'    => 0,
 				'show'       => 'upcoming',
 				'related_to' => null,
 			)
@@ -137,9 +145,15 @@ class Events_Repository {
 		// isn't worth it for a "related events" strip.
 		$order = 'past' === $args['show'] ? 'DESC' : 'ASC';
 
+		// Split on when an event *ends*, not when it starts, so an event
+		// that's under way counts as upcoming (and shows an "Ongoing"
+		// badge in the browser) until it's actually over, and never
+		// appears under "past" while it's still happening. The end time is
+		// the derived Post_Type::ENDS_AT_KEY — see Post_Type::ends_at() for
+		// how all-day events and events without an end are handled.
 		if ( 'all' !== $args['show'] ) {
 			$meta_query['date_clause'] = array(
-				'key'     => 'es_start_datetime',
+				'key'     => Post_Type::ENDS_AT_KEY,
 				'value'   => \current_time( 'mysql' ),
 				'compare' => 'upcoming' === $args['show'] ? '>=' : '<',
 				'type'    => 'DATETIME',
@@ -160,6 +174,17 @@ class Events_Repository {
 			);
 		}
 
+		// '1' is what every writer stores for true: the meta box saves
+		// 1/0, ACF's true_false saves "1"/"0", and REST writes go through
+		// rest_sanitize_boolean (see Post_Type::register_meta()).
+		if ( 'only' === $args['featured'] ) {
+			$meta_query['featured_clause'] = array(
+				'key'     => 'es_featured',
+				'value'   => '1',
+				'compare' => '=',
+			);
+		}
+
 		$query_args = array(
 			'post_type'      => Post_Type::post_type(),
 			'post_status'    => 'publish',
@@ -170,7 +195,14 @@ class Events_Repository {
 			'paged'          => max( 1, (int) $args['page'] ),
 			's'              => \sanitize_text_field( (string) $args['search'] ),
 			'meta_query'     => $meta_query, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query
-			'orderby'        => array( 'start_clause' => $order ),
+			// ID as a tie-break: two events starting at the same moment
+			// otherwise come back in whatever order the database likes,
+			// which can change between requests — and with hero="true"
+			// that decided which of two featured events got the hero.
+			'orderby'        => array(
+				'start_clause' => $order,
+				'ID'           => $order,
+			),
 		);
 
 		if ( $related_to > 0 ) {
@@ -207,6 +239,13 @@ class Events_Repository {
 					'terms'    => \sanitize_title( (string) $args['category'] ),
 				),
 			);
+		}
+
+		$exclude = (int) $args['exclude'];
+		if ( $exclude > 0 ) {
+			// Merged, not assigned: the related branch above may already
+			// have excluded the source event.
+			$query_args['post__not_in'] = array_merge( $query_args['post__not_in'] ?? array(), array( $exclude ) );
 		}
 
 		/**
@@ -278,8 +317,8 @@ class Events_Repository {
 
 		// The cache key already hashes $args, so 'show' is covered like
 		// every other parameter — but unlike category/search, an
-		// upcoming/past split is time-based: an event can cross from
-		// upcoming to past without any save_post/delete/term-change firing
+		// upcoming/past split is time-based: an event can end, crossing
+		// from upcoming to past, without any save_post/delete/term-change firing
 		// to bust the cache. Worst case it lingers on the wrong side of
 		// the split for up to CACHE_TTL (300s) after it crosses. Accepted
 		// as-is — a version-bump-on-every-request cache would defeat the
@@ -400,12 +439,23 @@ class Events_Repository {
 			'content'        => \wp_kses_post( \wpautop( $post->post_content ) ),
 			'start_datetime' => $this->iso8601( $this->meta( $post->ID, 'es_start_datetime' ) ),
 			'end_datetime'   => $this->iso8601( $this->meta( $post->ID, 'es_end_datetime' ) ),
+			// When the event is over, by the same rule the upcoming/past
+			// query uses — the browser compares this against the clock to
+			// show an "Ongoing" badge, rather than re-deriving the rule.
+			'ends_at'        => $this->iso8601(
+				Post_Type::ends_at(
+					$this->meta( $post->ID, 'es_start_datetime' ),
+					$this->meta( $post->ID, 'es_end_datetime' ),
+					$this->boolean_meta( $post->ID, 'es_all_day' )
+				)
+			),
 			'venue'          => $this->meta( $post->ID, 'es_venue_name' ),
 			'location'       => $this->meta( $post->ID, 'es_location' ),
 			'categories'     => $this->categories( $post->ID ),
 			'thumbnail'      => $this->thumbnail( $post->ID ),
 			'external_url'   => $this->meta( $post->ID, 'es_external_url' ),
 			'all_day'        => $this->boolean_meta( $post->ID, 'es_all_day' ),
+			'featured'       => $this->boolean_meta( $post->ID, 'es_featured' ),
 			// Deliberately not filtered by status here or in get_events():
 			// a postponed or cancelled event still needs to be findable by
 			// someone checking whether it's still on — hiding it would

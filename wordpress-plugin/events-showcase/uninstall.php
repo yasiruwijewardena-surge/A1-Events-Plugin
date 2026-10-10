@@ -61,6 +61,7 @@ function uninstall_site() {
 
 	\delete_option( Events_Repository::VERSION_OPTION );
 	\delete_option( Settings::OPTION_NAME );
+	\delete_option( Post_Type::ENDS_AT_BACKFILL_OPTION );
 
 	// No plugin-specific transients are set anywhere in this codebase
 	// (caching uses the object cache group below instead), so there is

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useFocusTrap } from '../hooks/useFocusTrap.js';
+import { isOngoing } from '../utils/normalizeEvent.js';
 
 // Full event details popup. Closable via the close button, an overlay
 // click, or Escape. Traps focus while open and restores it on close.
@@ -128,6 +129,13 @@ export default function EventModal({ event, onClose, className = '' }) {
                 role="status"
               >
                 {event.status === 'cancelled' ? 'This event has been cancelled.' : 'This event has been postponed.'}
+              </p>
+            )}
+            {/* isOngoing() is false for cancelled/postponed events, so at
+                most one of these two notices ever shows. */}
+            {isOngoing(event) && (
+              <p className="event-modal__notice event-modal__notice--ongoing">
+                This event is happening now.
               </p>
             )}
             <h2 id={titleId} className="event-modal__title">

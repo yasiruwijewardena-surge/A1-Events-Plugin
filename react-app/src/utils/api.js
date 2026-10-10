@@ -8,7 +8,7 @@
  * Fetches one page of events.
  *
  * @param {string} restUrl Namespace root from the mount element's data-api.
- * @param {{category?: string, location?: string, page?: number, perPage?: number, search?: string, show?: string}} params
+ * @param {{category?: string, location?: string, featured?: string, exclude?: number, page?: number, perPage?: number, search?: string, show?: string}} params
  * @returns {Promise<{events: object[], total: number, pages: number}>}
  */
 export async function fetchEvents(restUrl, params = {}) {
@@ -17,6 +17,8 @@ export async function fetchEvents(restUrl, params = {}) {
   if (params.category) url.searchParams.set('category', params.category);
   if (params.search) url.searchParams.set('search', params.search);
   if (params.location) url.searchParams.set('location', params.location);
+  if (params.featured) url.searchParams.set('featured', params.featured);
+  if (params.exclude) url.searchParams.set('exclude', params.exclude);
   // Always sent, not `if (params.show)`: 'upcoming' is a real, meaningful
   // choice here, not an empty/absent value like category or search — the
   // REST default already matches it, but relying on that silently would
