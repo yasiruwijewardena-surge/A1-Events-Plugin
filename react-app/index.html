@@ -18,6 +18,9 @@
       /wp-json/events-showcase/v1 and will fail here with no backend
       running — that's expected; this sandbox is for the initial render,
       not full integration testing.
+
+      "hero" mirrors what [events_showcase hero="true"] inlines: the
+      soonest upcoming featured event, shown above the grid.
     -->
     <div class="events-showcase-root">
       <script type="application/json" id="es-events-data-dev">
@@ -53,7 +56,22 @@
             }
           ],
           "total": 2,
-          "pages": 1
+          "pages": 1,
+          "hero": {
+            "id": 3,
+            "title": "Colombo Tech Summit 2026",
+            "permalink": "#",
+            "excerpt": "Two tracks of talks on AI, cloud and product engineering, with workshops and an evening networking session for the local tech community.",
+            "content": "<p>Full description of the featured summit goes here.</p>",
+            "start_datetime": "2026-11-20T09:00:00+05:30",
+            "end_datetime": "2026-11-20T17:30:00+05:30",
+            "venue": "Shangri-La Convention Centre",
+            "location": "Colombo",
+            "categories": [{ "slug": "conference", "name": "Conference" }],
+            "thumbnail": { "url": "https://placehold.co/1200x800", "width": 1200, "height": 800, "alt": "" },
+            "external_url": null,
+            "featured": true
+          }
         }
       </script>
       <div
@@ -63,6 +81,7 @@
         data-per-page="12"
         data-category=""
         data-search=""
+        data-timezone="Asia/Colombo"
         data-nonce=""
       ></div>
     </div>

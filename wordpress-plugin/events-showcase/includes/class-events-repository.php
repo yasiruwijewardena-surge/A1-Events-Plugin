@@ -57,6 +57,12 @@ class Events_Repository {
 	 *     @type int      $page       Page number, 1-indexed.
 	 *     @type string   $search     Free-text search term.
 	 *     @type string   $location   Exact es_location value to filter by.
+	 *     @type string   $featured   'only' to list featured events only;
+	 *                                '' (default) for no restriction.
+	 *     @type int      $exclude    Post ID to leave out — the shortcode's
+	 *                                hero event, so it isn't repeated in
+	 *                                the grid beneath it. 0 (default) for
+	 *                                none.
 	 *     @type string   $show       'upcoming' (default), 'past', or 'all'.
 	 *     @type int|null $related_to Post ID to build a "related events"
 	 *                                listing around, or null (default) for
@@ -87,6 +93,8 @@ class Events_Repository {
 				'page'       => 1,
 				'search'     => '',
 				'location'   => '',
+				'featured'   => '',
+				'exclude'    => 0,
 				'show'       => 'upcoming',
 				'related_to' => null,
 			)
@@ -160,6 +168,17 @@ class Events_Repository {
 			);
 		}
 
+		// '1' is what every writer stores for true: the meta box saves
+		// 1/0, ACF's true_false saves "1"/"0", and REST writes go through
+		// rest_sanitize_boolean (see Post_Type::register_meta()).
+		if ( 'only' === $args['featured'] ) {
+			$meta_query['featured_clause'] = array(
+				'key'     => 'es_featured',
+				'value'   => '1',
+				'compare' => '=',
+			);
+		}
+
 		$query_args = array(
 			'post_type'      => Post_Type::post_type(),
 			'post_status'    => 'publish',
@@ -207,6 +226,13 @@ class Events_Repository {
 					'terms'    => \sanitize_title( (string) $args['category'] ),
 				),
 			);
+		}
+
+		$exclude = (int) $args['exclude'];
+		if ( $exclude > 0 ) {
+			// Merged, not assigned: the related branch above may already
+			// have excluded the source event.
+			$query_args['post__not_in'] = array_merge( $query_args['post__not_in'] ?? array(), array( $exclude ) );
 		}
 
 		/**
@@ -406,6 +432,7 @@ class Events_Repository {
 			'thumbnail'      => $this->thumbnail( $post->ID ),
 			'external_url'   => $this->meta( $post->ID, 'es_external_url' ),
 			'all_day'        => $this->boolean_meta( $post->ID, 'es_all_day' ),
+			'featured'       => $this->boolean_meta( $post->ID, 'es_featured' ),
 			// Deliberately not filtered by status here or in get_events():
 			// a postponed or cancelled event still needs to be findable by
 			// someone checking whether it's still on — hiding it would

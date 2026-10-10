@@ -576,6 +576,17 @@ class Settings {
 				</tbody>
 			</table>
 
+			<h2><?php \esc_html_e( 'Featured events', 'events-showcase' ); ?></h2>
+			<p>
+				<?php \esc_html_e( 'Tick "Feature this event" in an event\'s Event Details to feature it. Featured events show a star in the Featured column on All Events.', 'events-showcase' ); ?>
+			</p>
+			<p>
+				<?php \esc_html_e( 'hero="true" shows the soonest upcoming featured event as a large card above the grid, and leaves it out of the grid below so it isn\'t shown twice. If no upcoming event is featured, there is no hero and the listing shows as normal.', 'events-showcase' ); ?>
+			</p>
+			<p>
+				<?php \esc_html_e( 'The hero steps aside while a visitor is filtering or searching, so the results always match what they asked for, and it only appears on the first page.', 'events-showcase' ); ?>
+			</p>
+
 			<h2><?php \esc_html_e( 'Related events', 'events-showcase' ); ?></h2>
 			<p>
 				<?php \esc_html_e( 'related="true" shows other events that share a category with the event currently being viewed, instead of a plain listing.', 'events-showcase' ); ?>
@@ -606,6 +617,16 @@ class Settings {
 			<p><?php \esc_html_e( 'Add this to the Event Details content (or a template) on the event\'s own singular view. filters defaults to false automatically here, so it doesn\'t need to be passed:', 'events-showcase' ); ?></p>
 			<pre class="es-help__example"><code>[events_showcase related="true" per-page="3"]</code></pre>
 			<p class="description"><?php \esc_html_e( 'What this looks like: a card grid of related events (or a fallback upcoming listing) with the same bare footprint as the teaser above — no search box, filters, or pager.', 'events-showcase' ); ?></p>
+
+			<h3><?php \esc_html_e( 'Events page with a featured event on top', 'events-showcase' ); ?></h3>
+			<p><?php \esc_html_e( 'The full events page, led by the next featured event:', 'events-showcase' ); ?></p>
+			<pre class="es-help__example"><code>[events_showcase hero="true"]</code></pre>
+			<p class="description"><?php \esc_html_e( 'What this looks like: a large card for the featured event (photo beside the details on wider screens), then the search box, filters and event grid below it.', 'events-showcase' ); ?></p>
+
+			<h3><?php \esc_html_e( 'Featured events strip', 'events-showcase' ); ?></h3>
+			<p><?php \esc_html_e( 'A compact list of featured events only, for a homepage or sidebar:', 'events-showcase' ); ?></p>
+			<pre class="es-help__example"><code>[events_showcase featured="only" layout="compact" filters="false" per-page="3"]</code></pre>
+			<p class="description"><?php \esc_html_e( 'What this looks like: up to three featured events as compact rows, with no search box, filters, or page numbers.', 'events-showcase' ); ?></p>
 		</div>
 		<?php
 	}
@@ -668,6 +689,16 @@ class Settings {
 				'attribute'   => 'related',
 				'default'     => 'false',
 				'description' => \__( 'Shows events related to the event currently being viewed instead of a plain listing. See "Related events" below.', 'events-showcase' ),
+			),
+			array(
+				'attribute'   => 'hero',
+				'default'     => 'false',
+				'description' => \__( 'Shows the soonest upcoming featured event as a large hero card above the grid. See "Featured events" below.', 'events-showcase' ),
+			),
+			array(
+				'attribute'   => 'featured',
+				'default'     => \__( '(none)', 'events-showcase' ),
+				'description' => \__( 'featured="only" lists featured events only.', 'events-showcase' ),
 			),
 		);
 	}

@@ -24,6 +24,12 @@ class Post_Type {
 		// Dynamic for the same reason as every other save_post_{post_type}
 		// hook in this plugin: Post_Type::post_type() is filterable.
 		\add_action( 'save_post_' . self::post_type(), array( $this, 'backfill_start_datetime' ) );
+
+		// A star column on All Events, so whoever manages content can see
+		// which events are featured without opening each one.
+		\add_filter( 'manage_' . self::post_type() . '_posts_columns', array( $this, 'add_featured_column' ) );
+		\add_action( 'manage_' . self::post_type() . '_posts_custom_column', array( $this, 'render_featured_column' ), 10, 2 );
+		\add_action( 'admin_head-edit.php', array( $this, 'print_featured_column_styles' ) );
 	}
 
 	/**
@@ -196,6 +202,19 @@ class Post_Type {
 
 		\register_post_meta(
 			$post_type,
+			'es_featured',
+			array(
+				'type'              => 'boolean',
+				'single'            => true,
+				'show_in_rest'      => true,
+				'default'           => false,
+				// Same core helper as es_all_day — see there.
+				'sanitize_callback' => 'rest_sanitize_boolean',
+			)
+		);
+
+		\register_post_meta(
+			$post_type,
 			'es_status',
 			array(
 				'type'              => 'string',
@@ -258,6 +277,58 @@ class Post_Type {
 		// local time — the same convention es_start_datetime itself uses
 		// (see Events_Repository::iso8601()) — so no conversion is needed.
 		\update_post_meta( $post_id, 'es_start_datetime', $post->post_date );
+	}
+
+	/**
+	 * Adds a narrow "Featured" column after the title on All Events.
+	 *
+	 * @param array<string, string> $columns Existing columns.
+	 * @return array<string, string>
+	 */
+	public function add_featured_column( array $columns ): array {
+		$result = array();
+
+		foreach ( $columns as $key => $label ) {
+			$result[ $key ] = $label;
+			if ( 'title' === $key ) {
+				$result['es_featured'] = __( 'Featured', 'events-showcase' );
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Prints a filled star for featured events. The visually hidden text
+	 * is what a screen reader announces — the star itself is decorative.
+	 *
+	 * @param string $column  Column key.
+	 * @param int    $post_id Row's post ID.
+	 * @return void
+	 */
+	public function render_featured_column( string $column, int $post_id ): void {
+		if ( 'es_featured' !== $column || ! \get_post_meta( $post_id, 'es_featured', true ) ) {
+			return;
+		}
+
+		printf(
+			'<span class="dashicons dashicons-star-filled" aria-hidden="true"></span><span class="screen-reader-text">%s</span>',
+			\esc_html__( 'Featured', 'events-showcase' )
+		);
+	}
+
+	/**
+	 * Keeps the Featured column narrow — by default WordPress gives every
+	 * custom column an equal share of the leftover width.
+	 *
+	 * @return void
+	 */
+	public function print_featured_column_styles(): void {
+		if ( self::post_type() !== \get_current_screen()?->post_type ) {
+			return;
+		}
+
+		echo '<style>.column-es_featured{width:5.5em;text-align:center}.column-es_featured .dashicons{color:#dba617}</style>';
 	}
 
 	/**

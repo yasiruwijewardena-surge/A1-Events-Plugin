@@ -26,6 +26,9 @@ function mountAll() {
       // no UI to change it, so it just needs to keep flowing into every
       // subsequent fetch the same way category/search do (see useEvents.js).
       show: el.dataset.show || 'upcoming',
+      // 'only' restricts every fetch to featured events (featured="only"
+      // on the shortcode), '' for no restriction. Fixed, like show.
+      featured: el.dataset.featured || '',
       // Display-only — never sent to the REST API. App.jsx applies these
       // as modifier classes on the wrapper; events.css does the rest.
       layout: el.dataset.layout || 'grid',

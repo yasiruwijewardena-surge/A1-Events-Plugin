@@ -99,6 +99,14 @@ class ACF_Fields {
 						'instructions' => __( 'Hides the time and shows only the date, everywhere the event appears.', 'events-showcase' ),
 					),
 					array(
+						'key'          => 'field_es_featured',
+						'label'        => __( 'Featured Event', 'events-showcase' ),
+						'name'         => 'es_featured',
+						'type'         => 'true_false',
+						'ui'           => 1,
+						'instructions' => __( 'The soonest upcoming featured event is shown as the large hero card on listings using hero="true", and featured events are what featured="only" lists.', 'events-showcase' ),
+					),
+					array(
 						'key'           => 'field_es_status',
 						'label'         => __( 'Status', 'events-showcase' ),
 						'name'          => 'es_status',

@@ -55,6 +55,7 @@ export function normalizeEvent(raw, timeZone) {
     startDate,
     endDate,
     allDay,
+    featured: Boolean(raw.featured),
     // Raw ISO string kept alongside the parsed Date so the card can put a
     // machine-readable datetime on its <time> element without having to
     // re-serialise (and risk shifting) the value.

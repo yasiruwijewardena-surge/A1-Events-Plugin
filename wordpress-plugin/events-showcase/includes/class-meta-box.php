@@ -83,6 +83,7 @@ class Meta_Box {
 		$location = \get_post_meta( $post->ID, 'es_location', true );
 		$url      = \get_post_meta( $post->ID, 'es_external_url', true );
 		$all_day  = (bool) \get_post_meta( $post->ID, 'es_all_day', true );
+		$featured = (bool) \get_post_meta( $post->ID, 'es_featured', true );
 		$status   = \get_post_meta( $post->ID, 'es_status', true ) ?: 'scheduled';
 		?>
 		<table class="form-table" role="presentation">
@@ -179,6 +180,24 @@ class Meta_Box {
 					</td>
 				</tr>
 				<tr>
+					<th scope="row"><?php esc_html_e( 'Featured event', 'events-showcase' ); ?></th>
+					<td>
+						<label for="es_featured">
+							<input
+								type="checkbox"
+								id="es_featured"
+								name="es_featured"
+								value="1"
+								<?php checked( $featured ); ?>
+							>
+							<?php esc_html_e( 'Feature this event', 'events-showcase' ); ?>
+						</label>
+						<p class="description">
+							<?php esc_html_e( 'The soonest upcoming featured event is shown as the large hero card on listings using hero="true", and featured events are what featured="only" lists.', 'events-showcase' ); ?>
+						</p>
+					</td>
+				</tr>
+				<tr>
 					<th scope="row">
 						<label for="es_status"><?php esc_html_e( 'Status', 'events-showcase' ); ?></label>
 					</th>
@@ -258,6 +277,7 @@ class Meta_Box {
 		// $_POST, so "not set" has to mean "false," not "leave unchanged" —
 		// otherwise unchecking the box and saving would never take effect.
 		\update_post_meta( $post_id, 'es_all_day', isset( $_POST['es_all_day'] ) ? 1 : 0 );
+		\update_post_meta( $post_id, 'es_featured', isset( $_POST['es_featured'] ) ? 1 : 0 );
 
 		if ( isset( $_POST['es_status'] ) ) {
 			$allowed = array( 'scheduled', 'postponed', 'cancelled' );

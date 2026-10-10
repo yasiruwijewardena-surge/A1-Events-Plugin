@@ -1,7 +1,9 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useEvents } from './hooks/useEvents.js';
 import EventFilters from './components/EventFilters.jsx';
 import EventsGrid from './components/EventsGrid.jsx';
+import EventHero from './components/EventHero.jsx';
+import EventModal from './components/EventModal.jsx';
 import SearchBox from './components/SearchBox.jsx';
 import NoResults from './components/NoResults.jsx';
 import Loader from './components/Loader.jsx';
@@ -16,6 +18,8 @@ export default function App({ config, initialData }) {
     loading,
     error,
     events,
+    hero,
+    showHero,
     filters,
     setFilters,
     search,
@@ -27,6 +31,10 @@ export default function App({ config, initialData }) {
     pages,
     resultsMessage,
   } = useEvents(config, initialData);
+
+  // The event open in the details modal, if any. Held here rather than in
+  // EventsGrid because the hero opens the same modal.
+  const [activeEvent, setActiveEvent] = useState(null);
 
   // This instance's own container, not window.scrollTo(0, 0) — another
   // instance of the shortcode could be on the same page, and scrolling
@@ -118,13 +126,28 @@ export default function App({ config, initialData }) {
         // Pagination sits outside the empty/non-empty branch so a visitor
         // is never left on a blank page with no control to get off it.
         <div className="events-showcase__results" aria-busy={isRefreshing}>
+          {showHero && <EventHero event={hero} onSelect={() => setActiveEvent(hero)} />}
+          {/* An empty grid under a hero isn't "no events" — the hero is
+              one. That's the case where the featured event is the only
+              upcoming one, and saying "no upcoming events" right beneath
+              it would contradict the page. */}
           {events.length === 0 ? (
-            <NoResults hasActiveFilter={hasActiveFilter} show={config.show} />
+            !showHero && <NoResults hasActiveFilter={hasActiveFilter} show={config.show} />
           ) : (
-            <EventsGrid events={events} className={config.className} />
+            <EventsGrid events={events} onSelect={setActiveEvent} />
           )}
           {showFilters && <Pagination page={page} pages={pages} onChange={handlePageChange} />}
         </div>
+      )}
+
+      {activeEvent && (
+        <EventModal
+          event={activeEvent}
+          onClose={() => setActiveEvent(null)}
+          // Forwarded so the body-portalled dialog can carry the same
+          // theme class as the grid — see EventModal.jsx.
+          className={config.className}
+        />
       )}
     </div>
   );

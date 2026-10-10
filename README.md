@@ -43,7 +43,8 @@ docs/                              Supporting notes / screenshots for submission
    - Featured image — used as the card/modal thumbnail.
    - Taxonomy `es_event_category` — used for category filtering.
    - Event fields `es_start_datetime`, `es_end_datetime`, `es_venue_name`,
-     `es_location`, `es_external_url`, `es_all_day`, `es_status` —
+     `es_location`, `es_external_url`, `es_all_day`, `es_featured`,
+     `es_status` —
      registered as typed post meta via `register_post_meta()`,
      independent of whichever UI wrote them. Editable either through ACF
      (if installed — `class-acf-fields.php`) or the plugin's own
@@ -64,11 +65,12 @@ docs/                              Supporting notes / screenshots for submission
    drift into different response shapes. It returns a flat, predictable
    array per event: `id, title, permalink, excerpt, content,
    start_datetime, end_datetime, venue, location, categories, thumbnail,
-   external_url, all_day, status` — dates as ISO 8601, never the raw
+   external_url, all_day, featured, status` — dates as ISO 8601, never the raw
    MySQL format.
 3. Two consumers read that data:
    - **REST API** — `GET /wp-json/events-showcase/v1/events` (filters:
-     `category`, `location`, `search`, `show`, `page`, `per_page`) and
+     `category`, `location`, `search`, `show`, `featured`, `exclude`,
+     `page`, `per_page`) and
      `.../v1/filters` (available categories + locations, for
      data-driven filter controls).
    - **The shortcode** (`class-shortcode.php`) calls the same
@@ -148,6 +150,8 @@ fallback — see [Settings](#settings) for the actual precedence rule.
 | `columns`  | `3`                | `2`, `3`, or `4` — the grid's column count at the widest breakpoint only. Only meaningful when `layout="grid"`. |
 | `filters`  | `true`             | Whether the search box, category/location dropdowns, and pagination render at all — one flag for all three, since they're really one "is this a browse interface or a glance?" decision. `false`/`0`/`no` all count as off. Defaults to `false` instead when `related="true"` (see below), but an explicit `filters="true"` still wins. Not a site-wide Settings option on purpose — the same site legitimately wants filters on its events page and off on a homepage teaser. |
 | `related`  | `false`            | Shows events related to the event currently being viewed, instead of a plain listing. See [Related events](#related-events) below. |
+| `hero`     | `false`            | Shows the soonest upcoming **featured** event as a large hero card above the grid. See [Featured events](#featured-events). |
+| `featured` | *(none)*           | `featured="only"` lists featured events only — e.g. a compact homepage strip of headline events. |
 | `class`    | *(none)*           | Extra class(es) on the wrapper, for scoping your own CSS — see [Theming](#theming). Sanitised per token with `sanitize_html_class()`. |
 
 ## Theming
@@ -196,6 +200,7 @@ instances on the same page can be themed independently.
 | `--es-meta-size` | `0.8125rem` | Location, category, pager status |
 | `--es-eyebrow-size` | `0.6875rem` | Badges, control labels, modal `<dt>`s |
 | `--es-date-month-size` / `--es-date-day-size` | `0.75rem` / `1.75rem` | The card's calendar tile |
+| `--es-hero-title-size` | `clamp(1.5rem, …, 2.25rem)` | Hero title; fluid between phone and desktop |
 | `--es-text` / `--es-text-muted` | `currentColor` / 65% of it | Text. Inherits the theme by default |
 | `--es-border` | 15% of `currentColor` | All hairlines |
 | `--es-accent` / `--es-accent-contrast` | `#2563eb` / `#fff` | Date tile, links, focus rings, primary button |
@@ -206,6 +211,7 @@ instances on the same page can be themed independently.
 | `--es-overlay` / `--es-modal-surface` | `rgba(15,23,42,.72)` / `Canvas` | Modal backdrop and dialog |
 | `--es-shadow` / `--es-shadow-lift` / `--es-modal-shadow` | see `events.css` | Elevation at rest, on hover, and for the dialog |
 | `--es-media-ratio` | `16 / 10` | Card thumbnail aspect ratio |
+| `--es-hero-media-ratio` | `16 / 9` | Hero photo ratio when stacked (below 768px); from 768px it fills its column's height instead |
 | `--es-control-height` | `2.75rem` | Shared height for search + selects |
 | `--es-transition` / `--es-transition-fast` | `0.2s ease` / `0.15s ease` | Set either to `0s` to drop transitions. `prefers-reduced-motion` is honoured separately — this is for design choices, not accessibility |
 
@@ -240,6 +246,55 @@ The BEM class names in `events.css` — `.event-card__title`,
 `.events-grid`, `.event-modal`, and the rest — are treated as public API
 and won't be renamed without a major version bump.
 
+## Featured events
+
+Content managers mark an event as featured with the **Feature this
+event** checkbox in Event Details (or the ACF field, if ACF is active).
+All Events gets a **Featured** column with a star, so it's visible at a
+glance which events are featured.
+
+Two ways to use it:
+
+- **`hero="true"`**: the soonest *upcoming* featured event is shown as
+  a large hero card above the grid: photo beside the text from 768px,
+  stacked below that, with the full date and time, venue, excerpt and a
+  "View details" cue. Clicking it opens the same details modal as a card.
+- **`featured="only"`**: the listing shows featured events only.
+
+How the hero behaves, and why:
+
+- **Picked on the server, once per page load.** `Shortcode::resolve_hero()`
+  queries with the instance's own fixed `category`/`search` and
+  `featured=only`, `show=upcoming`, `per_page=1`. It travels to React in
+  the inline payload and is never refetched.
+- **Not repeated in the grid.** The hero's ID is sent as `exclude`, so
+  the first card isn't the same event again. This is server-side, like
+  every other filter, so the count and pager stay right.
+- **Steps aside when the visitor filters or searches.** Once the
+  listing differs from what the page was configured to show (a
+  different category, any location, a different search), the hero
+  hides and its event goes back into the results like any other.
+  Otherwise a search for something else would still have an unrelated
+  event sitting at the top of the results.
+- **Page 1 only.** It's the top of the listing; later pages don't
+  repeat it.
+- **No featured event, no hero.** It doesn't fall back to "the next
+  event": a hero that appears without anyone choosing it isn't
+  featuring anything. The listing just renders normally.
+- **Ignored with `related="true"` and `show="past"`.** A "next headline
+  event" banner makes no sense on a related strip or a past-events
+  archive.
+- If the featured event is the *only* upcoming one, the grid under it is
+  empty, and the "no upcoming events" message is suppressed. The hero
+  is an upcoming event, so saying there are none would contradict it.
+
+Pinning featured events to the top of the *normal* listing was
+considered and left out on purpose: it breaks the date order (a November
+event above an October one), it raises awkward questions about paging
+and filters, and a pinned event that's already over stays on top until
+someone remembers to unpin it. The hero answers "what's the main event?"
+without any of that.
+
 ## Related events
 
 `[events_showcase related="true"]`, placed on an **event's own singular
@@ -269,7 +324,7 @@ deliberately never added as a REST parameter — a REST request has no page
 context, so supporting it there would mean accepting a caller-supplied
 post ID with no real consumer for it yet.
 
-## Three realistic configurations
+## Realistic configurations
 
 ```
 [events_showcase]
@@ -289,6 +344,17 @@ glance, not a browse interface.
 A related-events block dropped into the single-event template. `filters`
 defaults to `false` here automatically (a related strip with a search box
 would be incoherent) — no need to pass it explicitly.
+
+```
+[events_showcase hero="true"]
+```
+The events page with its headline event on top: the soonest upcoming
+featured event as a hero card, then the full browsable grid beneath.
+
+```
+[events_showcase featured="only" layout="compact" filters="false" per-page="3"]
+```
+A compact homepage strip of featured events only.
 
 ## Settings
 
